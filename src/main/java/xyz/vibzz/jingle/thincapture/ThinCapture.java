@@ -36,18 +36,9 @@ public class ThinCapture {
 
     // EyeSee frames
     private static final List<BackgroundFrame> eyeSeeBgFrames = new ArrayList<>();
-    private static boolean eyeSeeShowing = false;
 
     public static ThinCaptureOptions getOptions() {
         return options;
-    }
-
-    public static List<BackgroundFrame> getBgFrames() {
-        return bgFrames;
-    }
-
-    public static List<BackgroundFrame> getEyeSeeBgFrames() {
-        return eyeSeeBgFrames;
     }
 
     public static void main(String[] args) throws IOException {
@@ -88,7 +79,7 @@ public class ThinCapture {
 
         // Add plugin tabs
         ThinCapturePluginPanel thinPanel = new ThinCapturePluginPanel();
-        JingleGUI.addPluginTab("ThinCapture", thinPanel.mainPanel, thinPanel::onSwitchTo);
+        JingleGUI.addPluginTab("Thin BT Capture", thinPanel.mainPanel, thinPanel::onSwitchTo);
 
         EyeSeeBackgroundPluginPanel eyeSeePanel = new EyeSeeBackgroundPluginPanel();
         JingleGUI.addPluginTab("EyeSee Background", eyeSeePanel.mainPanel, eyeSeePanel::onSwitchTo);
@@ -99,7 +90,7 @@ public class ThinCapture {
         PluginEvents.DUMP_PROJECTOR.register(ThinCapture::hideEyeSeeCaptures);
         PluginEvents.STOP.register(ThinCapture::stop);
 
-        Jingle.log(Level.INFO, "ThinCapture Plugin Initialized (" + options.captures.size() + " thin captures, " + options.eyeSeeBackgrounds.size() + " eyesee backgrounds)");
+        Jingle.log(Level.INFO, "Thin BT Capture Plugin Initialized (" + options.captures.size() + " thin captures, " + options.eyeSeeBackgrounds.size() + " eyesee backgrounds)");
     }
 
     // ===== Thin BT Methods =====
@@ -120,7 +111,7 @@ public class ThinCapture {
     public static void renameCapture(int index, String newName) {
         if (index < 0 || index >= options.captures.size()) return;
         options.captures.get(index).name = newName;
-        frames.get(index).setTitle("ThinCapture " + newName);
+        frames.get(index).setTitle("Thin BT Capture " + newName);
     }
 
     public static void addBackground(String name) {
@@ -257,8 +248,6 @@ public class ThinCapture {
         if (!options.eyeSeeEnabled) return;
         if (!Jingle.getMainInstance().isPresent()) return;
 
-        eyeSeeShowing = true;
-
         for (int i = 0; i < options.eyeSeeBackgrounds.size() && i < eyeSeeBgFrames.size(); i++) {
             BackgroundConfig bg = options.eyeSeeBackgrounds.get(i);
             BackgroundFrame bf = eyeSeeBgFrames.get(i);
@@ -272,7 +261,6 @@ public class ThinCapture {
     private static void hideEyeSeeCaptures() {
         if (!options.eyeSeeEnabled) return;
 
-        eyeSeeShowing = false;
         for (BackgroundFrame bf : eyeSeeBgFrames) {
             if (bf.isShowing()) bf.hideBackground();
         }

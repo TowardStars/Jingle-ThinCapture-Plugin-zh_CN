@@ -7,6 +7,7 @@ import xyz.vibzz.jingle.thincapture.frame.BackgroundFrame;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -19,26 +20,7 @@ public class EyeSeeBackgroundPluginPanel {
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        ThinCaptureOptions o = ThinCapture.getOptions();
-
-        // General Settings
-        JPanel generalPanel = new JPanel();
-        generalPanel.setLayout(new BoxLayout(generalPanel, BoxLayout.Y_AXIS));
-        generalPanel.setBorder(BorderFactory.createTitledBorder("EyeSee Background Settings"));
-        generalPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel enableRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        enableRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        JCheckBox enableBox = new JCheckBox("Enable EyeSee Backgrounds");
-        enableBox.setSelected(o.eyeSeeEnabled);
-        enableBox.addActionListener(a -> o.eyeSeeEnabled = enableBox.isSelected());
-        enableRow.add(enableBox);
-        JLabel desc = new JLabel("Shows/hides with EyeSee projector toggle");
-        desc.setFont(desc.getFont().deriveFont(Font.ITALIC, 11f));
-        enableRow.add(desc);
-        generalPanel.add(enableRow);
-
-        mainPanel.add(generalPanel);
+        mainPanel.add(buildGeneralPanel());
         mainPanel.add(Box.createRigidArea(new Dimension(0, 4)));
 
         backgroundsContainer = new JPanel();
@@ -46,7 +28,32 @@ public class EyeSeeBackgroundPluginPanel {
         backgroundsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
         mainPanel.add(backgroundsContainer);
 
-        // Add button
+        mainPanel.add(buildAddButtonRow());
+        mainPanel.add(Box.createVerticalGlue());
+
+        rebuildBackgrounds();
+    }
+
+    private JPanel buildGeneralPanel() {
+        ThinCaptureOptions o = ThinCapture.getOptions();
+
+        JPanel generalPanel = new JPanel();
+        generalPanel.setLayout(new BoxLayout(generalPanel, BoxLayout.Y_AXIS));
+        generalPanel.setBorder(BorderFactory.createTitledBorder("EyeSee Background Settings"));
+        generalPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JCheckBox enableBox = new JCheckBox("Enable EyeSee Backgrounds");
+        enableBox.setSelected(o.eyeSeeEnabled);
+        enableBox.addActionListener(a -> o.eyeSeeEnabled = enableBox.isSelected());
+
+        JLabel desc = new JLabel("Shows/hides with EyeSee projector toggle");
+        desc.setFont(desc.getFont().deriveFont(Font.ITALIC, 11f));
+
+        generalPanel.add(createRow(enableBox, desc));
+        return generalPanel;
+    }
+
+    private JPanel buildAddButtonRow() {
         JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
         addRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -60,24 +67,7 @@ public class EyeSeeBackgroundPluginPanel {
         });
         addRow.add(addBgBtn);
 
-        mainPanel.add(addRow);
-        mainPanel.add(Box.createVerticalGlue());
-
-        rebuildBackgrounds();
-    }
-
-    private JButton createRemoveButton(String label, Runnable onConfirm) {
-        JButton removeBtn = new JButton("Remove");
-        removeBtn.setMargin(new Insets(1, 6, 1, 6));
-        removeBtn.setForeground(Color.RED);
-        removeBtn.addActionListener(a -> {
-            int confirm = JOptionPane.showConfirmDialog(mainPanel,
-                    "Remove " + label + "?", "Confirm", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                onConfirm.run();
-            }
-        });
-        return removeBtn;
+        return addRow;
     }
 
     private JPanel buildBackgroundPanel(int index) {
@@ -89,13 +79,19 @@ public class EyeSeeBackgroundPluginPanel {
         section.setBorder(BorderFactory.createTitledBorder(bg.name));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        section.add(buildTopRow(index, bg));
+        section.add(buildImageRow(index, bg));
+        section.add(buildPositionRow(index, bg));
+
+        return section;
+    }
+
+    private JPanel buildTopRow(int index, BackgroundConfig bg) {
         JCheckBox enableBox = new JCheckBox("Enabled");
         enableBox.setSelected(bg.enabled);
         enableBox.addActionListener(a -> bg.enabled = enableBox.isSelected());
 
-        JButton renameBtn = new JButton("Rename");
-        renameBtn.setMargin(new Insets(1, 6, 1, 6));
-        renameBtn.addActionListener(a -> {
+        JButton renameBtn = createSmallButton("Rename", a -> {
             String newName = JOptionPane.showInputDialog(mainPanel, "New name:", bg.name);
             if (newName != null && !newName.trim().isEmpty()) {
                 ThinCapture.renameEyeSeeBackground(index, newName.trim());
@@ -108,57 +104,36 @@ public class EyeSeeBackgroundPluginPanel {
             rebuildBackgrounds();
         });
 
-        JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        topRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        topRow.add(enableBox);
-        topRow.add(renameBtn);
-        topRow.add(removeBtn);
-        section.add(topRow);
+        return createRow(enableBox, renameBtn, removeBtn);
+    }
 
+    private JPanel buildImageRow(int index, BackgroundConfig bg) {
         JTextField bgPathField = new JTextField(bg.imagePath, 18);
-        JButton browseBtn = new JButton("Browse...");
-        browseBtn.setMargin(new Insets(1, 6, 1, 6));
-        JButton clearBtn = new JButton("Clear");
-        clearBtn.setMargin(new Insets(1, 6, 1, 6));
 
-        browseBtn.addActionListener(a -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                    "Images (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"
-            ));
-            if (chooser.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) {
-                String path = chooser.getSelectedFile().getAbsolutePath();
-                bgPathField.setText(path);
-                bg.imagePath = path;
-                BackgroundFrame frame = ThinCapture.getEyeSeeBgFrame(index);
-                if (frame != null) frame.loadImage(path);
-            }
+        JButton browseBtn = createBrowseButton(path -> {
+            bgPathField.setText(path);
+            bg.imagePath = path;
+            BackgroundFrame frame = ThinCapture.getEyeSeeBgFrame(index);
+            if (frame != null) frame.loadImage(path);
         });
-        clearBtn.addActionListener(a -> {
+
+        JButton clearBtn = createSmallButton("Clear", a -> {
             bgPathField.setText("");
             bg.imagePath = "";
             BackgroundFrame frame = ThinCapture.getEyeSeeBgFrame(index);
             if (frame != null) frame.loadImage("");
         });
 
-        JPanel imageRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        imageRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        imageRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        imageRow.add(new JLabel("Image:"));
-        imageRow.add(bgPathField);
-        imageRow.add(browseBtn);
-        imageRow.add(clearBtn);
-        section.add(imageRow);
+        return createRow(new JLabel("Image:"), bgPathField, browseBtn, clearBtn);
+    }
 
+    private JPanel buildPositionRow(int index, BackgroundConfig bg) {
         JTextField bgXField = new JTextField(String.valueOf(bg.x), 4);
         JTextField bgYField = new JTextField(String.valueOf(bg.y), 4);
         JTextField bgWField = new JTextField(String.valueOf(bg.width), 5);
         JTextField bgHField = new JTextField(String.valueOf(bg.height), 5);
 
-        JButton selectBtn = new JButton("Select");
-        selectBtn.setMargin(new Insets(1, 6, 1, 6));
-        selectBtn.addActionListener(a -> RegionSelector.selectOnScreen(r -> {
+        Consumer<Rectangle> onRegionSelected = r -> {
             bgXField.setText(String.valueOf(r.x));
             bgYField.setText(String.valueOf(r.y));
             bgWField.setText(String.valueOf(r.width));
@@ -167,34 +142,22 @@ public class EyeSeeBackgroundPluginPanel {
             bg.y = r.y;
             bg.width = r.width;
             bg.height = r.height;
-        }));
+        };
 
-        JButton editBtn = new JButton("Edit");
-        editBtn.setMargin(new Insets(1, 6, 1, 6));
-        editBtn.addActionListener(a -> {
+        JButton selectBtn = createSmallButton("Select", a -> RegionSelector.selectOnScreen(onRegionSelected));
+
+        JButton editBtn = createSmallButton("Edit", a -> {
             Rectangle current = new Rectangle(
                     intFrom(bgXField, 0), intFrom(bgYField, 0), intFrom(bgWField, 1920), intFrom(bgHField, 1080)
             );
-            RegionSelector.editOnScreen(current, r -> {
-                bgXField.setText(String.valueOf(r.x));
-                bgYField.setText(String.valueOf(r.y));
-                bgWField.setText(String.valueOf(r.width));
-                bgHField.setText(String.valueOf(r.height));
-                bg.x = r.x;
-                bg.y = r.y;
-                bg.width = r.width;
-                bg.height = r.height;
-            });
+            RegionSelector.editOnScreen(current, onRegionSelected);
         });
 
-        JButton applyBtn = new JButton("Apply");
-        applyBtn.setMargin(new Insets(1, 6, 1, 6));
-        applyBtn.addActionListener(a -> {
+        JButton applyBtn = createSmallButton("Apply", a -> {
             bg.x = intFrom(bgXField, 0);
             bg.y = intFrom(bgYField, 0);
-            bg.width = clamp(intFrom(bgWField, 1920), 1, 7680);
-            bg.height = clamp(intFrom(bgHField, 1080), 1, 4320);
-            bg.imagePath = bgPathField.getText().trim();
+            bg.width = Math.max(1, intFrom(bgWField, 1920));
+            bg.height = Math.max(1, intFrom(bgHField, 1080));
 
             bgXField.setText(String.valueOf(bg.x));
             bgYField.setText(String.valueOf(bg.y));
@@ -226,9 +189,8 @@ public class EyeSeeBackgroundPluginPanel {
 
         posRow.add(posRowLeft, BorderLayout.WEST);
         posRow.add(posRowRight, BorderLayout.EAST);
-        section.add(posRow);
 
-        return section;
+        return posRow;
     }
 
     private void rebuildBackgrounds() {
@@ -249,6 +211,54 @@ public class EyeSeeBackgroundPluginPanel {
         rebuildBackgrounds();
     }
 
+    // ===== UI Helpers =====
+
+    private JPanel createRow(Component... components) {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (Component c : components) {
+            row.add(c);
+        }
+        return row;
+    }
+
+    private JButton createSmallButton(String text, java.awt.event.ActionListener action) {
+        JButton btn = new JButton(text);
+        btn.setMargin(new Insets(1, 6, 1, 6));
+        btn.addActionListener(action);
+        return btn;
+    }
+
+    private JButton createRemoveButton(String label, Runnable onConfirm) {
+        JButton removeBtn = new JButton("Remove");
+        removeBtn.setMargin(new Insets(1, 6, 1, 6));
+        removeBtn.setForeground(Color.RED);
+        removeBtn.addActionListener(a -> {
+            int confirm = JOptionPane.showConfirmDialog(mainPanel,
+                    "Remove " + label + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                onConfirm.run();
+            }
+        });
+        return removeBtn;
+    }
+
+    private JButton createBrowseButton(Consumer<String> onFileSelected) {
+        JButton browseBtn = new JButton("Browse...");
+        browseBtn.setMargin(new Insets(1, 6, 1, 6));
+        browseBtn.addActionListener(a -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                    "Images (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"
+            ));
+            if (chooser.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) {
+                onFileSelected.accept(chooser.getSelectedFile().getAbsolutePath());
+            }
+        });
+        return browseBtn;
+    }
+
     private static int intFrom(JTextField f, int fallback) {
         String t = f.getText().trim();
         boolean neg = t.startsWith("-");
@@ -256,6 +266,4 @@ public class EyeSeeBackgroundPluginPanel {
                 .filter(Character::isDigit).map(String::valueOf).collect(Collectors.joining());
         return nums.isEmpty() ? fallback : (neg ? -1 : 1) * Integer.parseInt(nums);
     }
-
-    private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }
 }
