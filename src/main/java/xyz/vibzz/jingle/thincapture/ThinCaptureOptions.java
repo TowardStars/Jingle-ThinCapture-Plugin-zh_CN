@@ -18,8 +18,17 @@ public class ThinCaptureOptions {
     public int thinBTWidth = 280;
     public int thinBTHeight = 1000;
     public int fpsLimit = 30;
-
     public List<CaptureConfig> captures = new ArrayList<>();
+
+    // Background overlay
+    public boolean bgEnabled = false;
+    public String bgName = "Background";
+    public String bgImagePath = "";
+    public int bgWidth = 1920;
+    public int bgHeight = 1080;
+    public int bgX = 0;
+    public int bgY = 0;
+    public boolean bgExists = false;
 
     public static Optional<ThinCaptureOptions> load() {
         if (!Files.exists(OPTIONS_PATH)) return Optional.of(new ThinCaptureOptions());

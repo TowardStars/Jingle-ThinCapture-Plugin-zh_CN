@@ -369,9 +369,6 @@ public class RegionSelector extends JFrame {
         new RegionSelector("Select Monitor Position", screenBounds, onSelected);
     }
 
-    /**
-     * Edit an existing region on screen.
-     */
     public static void editOnScreen(Rectangle current, Consumer<Rectangle> onSelected) {
         Rectangle screenBounds = GraphicsEnvironment.getLocalGraphicsEnvironment()
                 .getDefaultScreenDevice().getDefaultConfiguration().getBounds();
@@ -390,9 +387,6 @@ public class RegionSelector extends JFrame {
         new RegionSelector("Select MC Region", mcBounds, onSelected);
     }
 
-    /**
-     * Edit an existing region on the MC window.
-     */
     public static void editOnMCWindow(Rectangle current, Consumer<Rectangle> onSelected) {
         if (!xyz.duncanruns.jingle.Jingle.getMainInstance().isPresent()) {
             JOptionPane.showMessageDialog(null, "No Minecraft instance detected.", "ThinCapture", JOptionPane.WARNING_MESSAGE);

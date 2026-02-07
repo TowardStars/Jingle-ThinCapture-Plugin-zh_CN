@@ -4,17 +4,13 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class ThinCapturePluginPanel {
-    public JPanel mainPanel;
-    private JPanel capturesContainer;
-    private final List<JPanel> capturePanels = new ArrayList<>();
-
-    private JTextField thinWField, thinHField, fpsField;
+    public final JPanel mainPanel;
+    private final JPanel capturesContainer;
+    private final JButton addBgBtn;
 
     public ThinCapturePluginPanel() {
         mainPanel = new JPanel();
@@ -23,7 +19,7 @@ public class ThinCapturePluginPanel {
 
         ThinCaptureOptions o = ThinCapture.getOptions();
 
-        // ===== General Settings =====
+        // General Settings
         JPanel generalPanel = new JPanel();
         generalPanel.setLayout(new BoxLayout(generalPanel, BoxLayout.Y_AXIS));
         generalPanel.setBorder(BorderFactory.createTitledBorder("General"));
@@ -32,10 +28,10 @@ public class ThinCapturePluginPanel {
         JPanel thinRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         thinRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         thinRow.add(new JLabel("Thin BT size:"));
-        thinWField = new JTextField(String.valueOf(o.thinBTWidth), 4);
-        thinHField = new JTextField(String.valueOf(o.thinBTHeight), 4);
+        final JTextField thinWField = new JTextField(String.valueOf(o.thinBTWidth), 4);
+        final JTextField thinHField = new JTextField(String.valueOf(o.thinBTHeight), 4);
         thinRow.add(thinWField);
-        thinRow.add(new JLabel("\u00d7"));
+        thinRow.add(new JLabel("×"));
         thinRow.add(thinHField);
         JButton thinApply = new JButton("Apply");
         thinApply.addActionListener(a -> {
@@ -53,7 +49,7 @@ public class ThinCapturePluginPanel {
         JPanel fpsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         fpsRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         fpsRow.add(new JLabel("FPS limit:"));
-        fpsField = new JTextField(String.valueOf(o.fpsLimit), 4);
+        final JTextField fpsField = new JTextField(String.valueOf(o.fpsLimit), 4);
         fpsField.getDocument().addDocumentListener(docListener(() -> {
             o.fpsLimit = clamp(intFrom(fpsField, 30), 5, 240);
             ThinCapture.updateFpsLimit();
@@ -64,23 +60,16 @@ public class ThinCapturePluginPanel {
         mainPanel.add(generalPanel);
         mainPanel.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        // ===== Captures Container =====
+        // Captures Container
         capturesContainer = new JPanel();
         capturesContainer.setLayout(new BoxLayout(capturesContainer, BoxLayout.Y_AXIS));
         capturesContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        for (int i = 0; i < o.captures.size(); i++) {
-            JPanel panel = buildCapturePanel(i);
-            capturePanels.add(panel);
-            capturesContainer.add(panel);
-            capturesContainer.add(Box.createRigidArea(new Dimension(0, 4)));
-        }
-
         mainPanel.add(capturesContainer);
 
-        // Add Capture button
+        // Add buttons
         JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
         addRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JButton addBtn = new JButton("+ Add Capture");
         addBtn.addActionListener(a -> {
             String name = JOptionPane.showInputDialog(mainPanel, "Capture name:", "New Capture");
@@ -90,9 +79,144 @@ public class ThinCapturePluginPanel {
             }
         });
         addRow.add(addBtn);
-        mainPanel.add(addRow);
 
+        addBgBtn = new JButton("+ Add Background");
+        addBgBtn.addActionListener(a -> {
+            o.bgExists = true;
+            o.bgEnabled = true;
+            o.bgName = "Background";
+            rebuildCaptures();
+        });
+        addRow.add(addBgBtn);
+
+        mainPanel.add(addRow);
         mainPanel.add(Box.createVerticalGlue());
+
+        rebuildCaptures();
+    }
+
+    private JButton createRemoveButton(String label, Runnable onConfirm) {
+        JButton removeBtn = new JButton("Remove");
+        removeBtn.setMargin(new Insets(1, 6, 1, 6));
+        removeBtn.setForeground(Color.RED);
+        removeBtn.addActionListener(a -> {
+            int confirm = JOptionPane.showConfirmDialog(mainPanel,
+                    "Remove " + label + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                onConfirm.run();
+            }
+        });
+        return removeBtn;
+    }
+
+    private JPanel buildBackgroundPanel() {
+        ThinCaptureOptions o = ThinCapture.getOptions();
+
+        JPanel section = new JPanel();
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setBorder(BorderFactory.createTitledBorder(o.bgName));
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JCheckBox enableBox = new JCheckBox("Enabled");
+        enableBox.setSelected(o.bgEnabled);
+        enableBox.addActionListener(a -> o.bgEnabled = enableBox.isSelected());
+
+        JButton renameBtn = new JButton("Rename");
+        renameBtn.setMargin(new Insets(1, 6, 1, 6));
+        renameBtn.addActionListener(a -> {
+            String newName = JOptionPane.showInputDialog(mainPanel, "New name:", o.bgName);
+            if (newName != null && !newName.trim().isEmpty()) {
+                o.bgName = newName.trim();
+                rebuildCaptures();
+            }
+        });
+
+        JButton removeBtn = createRemoveButton("background \"" + o.bgName + "\"", () -> {
+            o.bgExists = false;
+            o.bgEnabled = false;
+            o.bgImagePath = "";
+            ThinCapture.getBackgroundFrame().loadImage("");
+            rebuildCaptures();
+        });
+
+        JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        topRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        topRow.add(enableBox);
+        topRow.add(renameBtn);
+        topRow.add(removeBtn);
+        section.add(topRow);
+
+        JTextField bgPathField = new JTextField(o.bgImagePath, 18);
+        JButton browseBtn = new JButton("Browse...");
+        browseBtn.setMargin(new Insets(1, 6, 1, 6));
+        JButton clearBtn = new JButton("Clear");
+        clearBtn.setMargin(new Insets(1, 6, 1, 6));
+
+        browseBtn.addActionListener(a -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                    "Images (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"
+            ));
+            if (chooser.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) {
+                String path = chooser.getSelectedFile().getAbsolutePath();
+                bgPathField.setText(path);
+                o.bgImagePath = path;
+                ThinCapture.getBackgroundFrame().loadImage(path);
+            }
+        });
+        clearBtn.addActionListener(a -> {
+            bgPathField.setText("");
+            o.bgImagePath = "";
+            ThinCapture.getBackgroundFrame().loadImage("");
+        });
+
+        JPanel imageRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        imageRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        imageRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        imageRow.add(new JLabel("Image:"));
+        imageRow.add(bgPathField);
+        imageRow.add(browseBtn);
+        imageRow.add(clearBtn);
+        section.add(imageRow);
+
+        JTextField bgXField = new JTextField(String.valueOf(o.bgX), 4);
+        JTextField bgYField = new JTextField(String.valueOf(o.bgY), 4);
+        JTextField bgWField = new JTextField(String.valueOf(o.bgWidth), 5);
+        JTextField bgHField = new JTextField(String.valueOf(o.bgHeight), 5);
+
+        JButton applyBtn = new JButton("Apply");
+        applyBtn.setMargin(new Insets(1, 6, 1, 6));
+        applyBtn.addActionListener(a -> {
+            o.bgX = intFrom(bgXField, 0);
+            o.bgY = intFrom(bgYField, 0);
+            o.bgWidth = clamp(intFrom(bgWField, 1920), 1, 7680);
+            o.bgHeight = clamp(intFrom(bgHField, 1080), 1, 4320);
+            o.bgImagePath = bgPathField.getText().trim();
+
+            bgXField.setText(String.valueOf(o.bgX));
+            bgYField.setText(String.valueOf(o.bgY));
+            bgWField.setText(String.valueOf(o.bgWidth));
+            bgHField.setText(String.valueOf(o.bgHeight));
+
+            ThinCapture.getBackgroundFrame().loadImage(o.bgImagePath);
+        });
+
+        JPanel posRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        posRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        posRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        posRow.add(new JLabel("X:"));
+        posRow.add(bgXField);
+        posRow.add(new JLabel("Y:"));
+        posRow.add(bgYField);
+        posRow.add(new JLabel("Width:"));
+        posRow.add(bgWField);
+        posRow.add(new JLabel("Height:"));
+        posRow.add(bgHField);
+        posRow.add(applyBtn);
+        section.add(posRow);
+
+        return section;
     }
 
     private JPanel buildCapturePanel(int index) {
@@ -104,7 +228,6 @@ public class ThinCapturePluginPanel {
         section.setBorder(BorderFactory.createTitledBorder(c.name));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Top row: enabled + rename + remove
         JCheckBox enableBox = new JCheckBox("Enabled");
         enableBox.setSelected(c.enabled);
         enableBox.addActionListener(a -> c.enabled = enableBox.isSelected());
@@ -119,32 +242,23 @@ public class ThinCapturePluginPanel {
             }
         });
 
-        JButton removeBtn = new JButton("Remove");
-        removeBtn.setMargin(new Insets(1, 6, 1, 6));
-        removeBtn.setForeground(Color.RED);
-        removeBtn.addActionListener(a -> {
-            int confirm = JOptionPane.showConfirmDialog(mainPanel,
-                    "Remove capture \"" + c.name + "\"?", "Confirm", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                ThinCapture.removeCapture(index);
-                rebuildCaptures();
-            }
+        JButton removeBtn = createRemoveButton("capture \"" + c.name + "\"", () -> {
+            ThinCapture.removeCapture(index);
+            rebuildCaptures();
         });
-
-        JButton applyBtn = new JButton("Apply");
-        applyBtn.setMargin(new Insets(1, 6, 1, 6));
 
         JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        topRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         topRow.add(enableBox);
         topRow.add(renameBtn);
         topRow.add(removeBtn);
         section.add(topRow);
 
-        // Monitor position
         JTextField ox = field(c.screenX), oy = field(c.screenY), ow = field(c.screenW), oh = field(c.screenH);
         JPanel overlayRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         overlayRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        overlayRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         overlayRow.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         overlayRow.add(new JLabel("Monitor  Starting X:"));overlayRow.add(ox);
         overlayRow.add(new JLabel("Starting Y:"));overlayRow.add(oy);
@@ -175,13 +289,12 @@ public class ThinCapturePluginPanel {
             });
         });
         overlayRow.add(editMonitor);
-
         section.add(overlayRow);
 
-        // MC region
         JTextField rx = field(c.captureX), ry = field(c.captureY), rw = field(c.captureW), rh = field(c.captureH);
         JPanel regionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         regionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        regionRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         regionRow.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         regionRow.add(new JLabel("MC Region Starting X:"));regionRow.add(rx);
         regionRow.add(new JLabel("Starting Y:"));regionRow.add(ry);
@@ -212,51 +325,143 @@ public class ThinCapturePluginPanel {
             });
         });
         regionRow.add(editMC);
-
         section.add(regionRow);
 
-        // Filtering
-        JCheckBox textOnlyBox = new JCheckBox("Text only (keep bright pixels)");
-        textOnlyBox.setSelected(c.textOnly);
-        textOnlyBox.addActionListener(a -> c.textOnly = textOnlyBox.isSelected());
+        // Transparency
+        JPanel transpSection = new JPanel();
+        transpSection.setLayout(new BoxLayout(transpSection, BoxLayout.Y_AXIS));
+        transpSection.setBorder(BorderFactory.createTitledBorder("Transparency"));
+        transpSection.setAlignmentX(Component.LEFT_ALIGNMENT);
+        transpSection.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
 
+        JCheckBox transparencyBox = new JCheckBox("Enable (filter white text)");
+        transparencyBox.setSelected(c.textOnly);
+
+        JLabel threshLabel = new JLabel("Threshold:");
         JTextField threshField = new JTextField(String.valueOf(c.textThreshold), 3);
+        JLabel threshNote = new JLabel("[0-255]");
+        threshNote.setFont(threshNote.getFont().deriveFont(Font.ITALIC, 10f));
+
+        JPanel transpRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        transpRow1.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+        transpRow1.add(transparencyBox);
+        transpRow1.add(Box.createHorizontalStrut(8));
+        transpRow1.add(threshLabel);
+        transpRow1.add(threshField);
+        transpRow1.add(threshNote);
+        transpSection.add(transpRow1);
+
+        JRadioButton bgTransparentRadio = new JRadioButton("Transparent");
+        JRadioButton bgColorRadio = new JRadioButton("Solid color");
+        JRadioButton bgImageRadio = new JRadioButton("Image");
+        ButtonGroup bgGroup = new ButtonGroup();
+        bgGroup.add(bgTransparentRadio);
+        bgGroup.add(bgColorRadio);
+        bgGroup.add(bgImageRadio);
+
+        if (c.transparentBg) {
+            bgTransparentRadio.setSelected(true);
+        } else if (c.bgImagePath != null && !c.bgImagePath.trim().isEmpty()) {
+            bgImageRadio.setSelected(true);
+        } else {
+            bgColorRadio.setSelected(true);
+        }
+
+        JPanel transpRow2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        transpRow2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+        transpRow2.add(new JLabel("Background:"));
+        transpRow2.add(bgTransparentRadio);
+        transpRow2.add(bgColorRadio);
+        transpRow2.add(bgImageRadio);
+        transpSection.add(transpRow2);
+
+        JButton applyBtn = new JButton("Apply");
+        applyBtn.setMargin(new Insets(1, 6, 1, 6));
+
+        JLabel colorLabel = new JLabel("Hex:");
+        JTextField bgField = new JTextField(c.bgColor, 7);
+
+        JTextField bgImageField = new JTextField(c.bgImagePath, 14);
+        JButton browseBtn = new JButton("Browse...");
+        browseBtn.setMargin(new Insets(1, 6, 1, 6));
+        JButton clearImgBtn = new JButton("Clear");
+        clearImgBtn.setMargin(new Insets(1, 6, 1, 6));
+
+        JPanel transpRow3 = new JPanel(new BorderLayout());
+        transpRow3.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+
+        JPanel transpRow3Left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        transpRow3Left.add(Box.createHorizontalStrut(16));
+        transpRow3Left.add(colorLabel);
+        transpRow3Left.add(bgField);
+        transpRow3Left.add(Box.createHorizontalStrut(12));
+        transpRow3Left.add(bgImageField);
+        transpRow3Left.add(browseBtn);
+        transpRow3Left.add(clearImgBtn);
+
+        JPanel transpRow3Right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 2));
+        transpRow3Right.add(applyBtn);
+
+        transpRow3.add(transpRow3Left, BorderLayout.WEST);
+        transpRow3.add(transpRow3Right, BorderLayout.EAST);
+        transpSection.add(transpRow3);
+
+        Runnable updateTranspState = () -> {
+            boolean on = transparencyBox.isSelected();
+            threshLabel.setEnabled(on);
+            threshField.setEnabled(on);
+            threshNote.setEnabled(on);
+            bgTransparentRadio.setEnabled(on);
+            bgColorRadio.setEnabled(on);
+            bgImageRadio.setEnabled(on);
+
+            boolean colorOn = on && bgColorRadio.isSelected();
+            boolean imageOn = on && bgImageRadio.isSelected();
+            colorLabel.setEnabled(colorOn);
+            bgField.setEnabled(colorOn);
+            bgImageField.setEnabled(imageOn);
+            browseBtn.setEnabled(imageOn);
+            clearImgBtn.setEnabled(imageOn);
+        };
+
+        Runnable syncConfig = () -> {
+            c.textOnly = transparencyBox.isSelected();
+            c.transparentBg = bgTransparentRadio.isSelected();
+            if (bgColorRadio.isSelected()) {
+                c.bgImagePath = "";
+            }
+        };
+
+        transparencyBox.addActionListener(a -> { syncConfig.run(); updateTranspState.run(); });
+        bgTransparentRadio.addActionListener(a -> { syncConfig.run(); updateTranspState.run(); });
+        bgColorRadio.addActionListener(a -> { syncConfig.run(); updateTranspState.run(); });
+        bgImageRadio.addActionListener(a -> { syncConfig.run(); updateTranspState.run(); });
+
         threshField.getDocument().addDocumentListener(docListener(() ->
                 c.textThreshold = clamp(intFrom(threshField, 200), 0, 255)
         ));
-
-        JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        filterRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        filterRow.add(textOnlyBox);
-        filterRow.add(new JLabel("Threshold:"));
-        filterRow.add(threshField);
-        section.add(filterRow);
-
-        // Background
-        JCheckBox transBgBox = new JCheckBox("Transparent background");
-        transBgBox.setSelected(c.transparentBg);
-        JTextField bgField = new JTextField(c.bgColor, 7);
-        bgField.setEnabled(!c.transparentBg);
-        transBgBox.addActionListener(a -> {
-            c.transparentBg = transBgBox.isSelected();
-            bgField.setEnabled(!c.transparentBg);
-        });
         bgField.getDocument().addDocumentListener(docListener(() -> c.bgColor = bgField.getText().trim()));
+        bgImageField.getDocument().addDocumentListener(docListener(() -> c.bgImagePath = bgImageField.getText().trim()));
 
-        JPanel bgRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        bgRow.add(transBgBox);
-        bgRow.add(new JLabel("Color:"));
-        bgRow.add(bgField);
+        browseBtn.addActionListener(a -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                    "Images (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"
+            ));
+            if (chooser.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) {
+                String path = chooser.getSelectedFile().getAbsolutePath();
+                bgImageField.setText(path);
+                c.bgImagePath = path;
+            }
+        });
+        clearImgBtn.addActionListener(a -> {
+            bgImageField.setText("");
+            c.bgImagePath = "";
+        });
 
-        JPanel bgWrapper = new JPanel(new BorderLayout());
-        bgWrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        bgWrapper.add(bgRow, BorderLayout.WEST);
-        JPanel applyPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        applyPanel.add(applyBtn);
-        bgWrapper.add(applyPanel, BorderLayout.EAST);
-        section.add(bgWrapper);
+        updateTranspState.run();
+        section.add(transpSection);
 
-        // Apply button action
         applyBtn.addActionListener(a -> {
             c.screenX = intFrom(ox, 0);
             c.screenY = intFrom(oy, 0);
@@ -284,15 +489,20 @@ public class ThinCapturePluginPanel {
 
     private void rebuildCaptures() {
         capturesContainer.removeAll();
-        capturePanels.clear();
 
         ThinCaptureOptions o = ThinCapture.getOptions();
-        for (int i = 0; i < o.captures.size(); i++) {
-            JPanel panel = buildCapturePanel(i);
-            capturePanels.add(panel);
-            capturesContainer.add(panel);
+
+        if (o.bgExists) {
+            capturesContainer.add(buildBackgroundPanel());
             capturesContainer.add(Box.createRigidArea(new Dimension(0, 4)));
         }
+
+        for (int i = 0; i < o.captures.size(); i++) {
+            capturesContainer.add(buildCapturePanel(i));
+            capturesContainer.add(Box.createRigidArea(new Dimension(0, 4)));
+        }
+
+        addBgBtn.setVisible(!o.bgExists);
 
         capturesContainer.revalidate();
         capturesContainer.repaint();
@@ -302,14 +512,12 @@ public class ThinCapturePluginPanel {
         rebuildCaptures();
     }
 
-    // --- Utility ---
-
     private static JTextField field(int val) { return new JTextField(String.valueOf(val), 4); }
 
     private static int intFrom(JTextField f, int fallback) {
         String t = f.getText().trim();
         boolean neg = t.startsWith("-");
-        String nums = IntStream.range(0, t.length()).mapToObj(i -> t.charAt(i))
+        String nums = IntStream.range(0, t.length()).mapToObj(t::charAt)
                 .filter(Character::isDigit).map(String::valueOf).collect(Collectors.joining());
         return nums.isEmpty() ? fallback : (neg ? -1 : 1) * Integer.parseInt(nums);
     }
