@@ -18,21 +18,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class ThinCapture {
     public static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor();
     private static ThinCaptureOptions options = null;
     private static final List<CaptureFrame> frames = new ArrayList<>();
+    private static BackgroundFrame backgroundFrame = null;
     private static boolean capturesShowing = false;
-    private static ThinCapturePluginPanel pluginPanel = null;
-
     public static ThinCaptureOptions getOptions() {
         return options;
     }
 
-    public static List<CaptureFrame> getFrames() {
-        return frames;
+    public static BackgroundFrame getBackgroundFrame() {
+        return backgroundFrame;
     }
 
     public static void main(String[] args) throws IOException {
@@ -50,35 +48,34 @@ public class ThinCapture {
             Jingle.log(Level.ERROR, "Failed to load ThinCapture options, using defaults.");
         }
 
-        // Create frames for existing configs
         for (CaptureConfig config : options.captures) {
             frames.add(new CaptureFrame(config.name));
         }
 
-        pluginPanel = new ThinCapturePluginPanel();
+        backgroundFrame = new BackgroundFrame();
+
+        ThinCapturePluginPanel pluginPanel = new ThinCapturePluginPanel();
         JingleGUI.addPluginTab("ThinCapture", pluginPanel.mainPanel, pluginPanel::onSwitchTo);
 
+        // Use Jingle's own tick (~1ms) instead of separate polling
+        PluginEvents.START_TICK.register(ThinCapture::detectThinBT);
         PluginEvents.STOP.register(ThinCapture::stop);
 
-        EXECUTOR.scheduleAtFixedRate(ThinCapture::detectThinBT, 500, 200, TimeUnit.MILLISECONDS);
+        // Pre-load background image so show is instant
+        if (options.bgEnabled && options.bgImagePath != null && !options.bgImagePath.trim().isEmpty()) {
+            backgroundFrame.loadImage(options.bgImagePath);
+        }
 
         Jingle.log(Level.INFO, "ThinCapture Plugin Initialized (" + options.captures.size() + " captures)");
     }
 
-    /**
-     * Adds a new capture config and frame.
-     */
-    public static CaptureConfig addCapture(String name) {
+    public static void addCapture(String name) {
         CaptureConfig config = new CaptureConfig(name);
         options.captures.add(config);
         CaptureFrame frame = new CaptureFrame(name);
         frames.add(frame);
-        return config;
     }
 
-    /**
-     * Removes a capture config and frame by index.
-     */
     public static void removeCapture(int index) {
         if (index < 0 || index >= options.captures.size()) return;
         options.captures.remove(index);
@@ -87,9 +84,6 @@ public class ThinCapture {
         frame.dispose();
     }
 
-    /**
-     * Renames a capture and its frame.
-     */
     public static void renameCapture(int index, String newName) {
         if (index < 0 || index >= options.captures.size()) return;
         options.captures.get(index).name = newName;
@@ -115,6 +109,8 @@ public class ThinCapture {
                 showCaptureWindows();
             } else if (!isThinBT && capturesShowing) {
                 hideCaptureWindows();
+            } else if (isThinBT && backgroundFrame.isShowing()) {
+                backgroundFrame.sendBehindMC();
             }
         } catch (Exception ignored) {
         }
@@ -122,21 +118,42 @@ public class ThinCapture {
 
     private static void showCaptureWindows() {
         capturesShowing = true;
+
+        boolean showBg = options.bgEnabled && options.bgImagePath != null && !options.bgImagePath.trim().isEmpty();
+
+        // Phase 1: Position everything (no showing yet)
+        if (showBg) {
+            backgroundFrame.positionBackground(options.bgX, options.bgY, options.bgWidth, options.bgHeight);
+        }
+
+        List<CaptureFrame> toShow = new ArrayList<>();
         for (int i = 0; i < options.captures.size() && i < frames.size(); i++) {
             CaptureConfig c = options.captures.get(i);
             CaptureFrame f = frames.get(i);
             if (c.enabled) {
-                f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor));
-                f.showCapture(
+                f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+                f.positionCapture(
                         new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
                         new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
                 );
+                toShow.add(f);
             }
+        }
+
+        // Phase 2: Show everything at once
+        if (showBg) {
+            backgroundFrame.showBackground();
+        }
+        for (CaptureFrame f : toShow) {
+            f.showCapture();
         }
     }
 
     private static void hideCaptureWindows() {
         capturesShowing = false;
+        if (backgroundFrame.isShowing()) {
+            backgroundFrame.hideBackground();
+        }
         for (CaptureFrame f : frames) {
             if (f.isShowing()) f.hideCapture();
         }
@@ -162,6 +179,7 @@ public class ThinCapture {
         for (CaptureFrame f : frames) {
             f.dispose();
         }
+        if (backgroundFrame != null) backgroundFrame.dispose();
         if (options != null) if (!options.trySave()) Jingle.log(Level.ERROR, "Failed to save ThinCapture options!");
     }
 }
