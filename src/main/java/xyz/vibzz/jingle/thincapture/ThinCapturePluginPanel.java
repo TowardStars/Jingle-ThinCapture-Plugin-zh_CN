@@ -4,22 +4,17 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class ThinCapturePluginPanel {
     public JPanel mainPanel;
+    private JPanel capturesContainer;
+    private final List<JPanel> capturePanels = new ArrayList<>();
 
-    private JTextField thinWField, thinHField;
-    private JTextField fpsField;
-
-    private JCheckBox entityEnableBox;
-    private JTextField entityOverlayXField, entityOverlayYField, entityOverlayWField, entityOverlayHField;
-    private JTextField entityRegionXField, entityRegionYField, entityRegionWField, entityRegionHField;
-
-    private JCheckBox pieEnableBox;
-    private JTextField pieOverlayXField, pieOverlayYField, pieOverlayWField, pieOverlayHField;
-    private JTextField pieRegionXField, pieRegionYField, pieRegionWField, pieRegionHField;
+    private JTextField thinWField, thinHField, fpsField;
 
     public ThinCapturePluginPanel() {
         mainPanel = new JPanel();
@@ -35,6 +30,7 @@ public class ThinCapturePluginPanel {
         generalPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel thinRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        thinRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         thinRow.add(new JLabel("Thin BT size:"));
         thinWField = new JTextField(String.valueOf(o.thinBTWidth), 4);
         thinHField = new JTextField(String.valueOf(o.thinBTHeight), 4);
@@ -55,6 +51,7 @@ public class ThinCapturePluginPanel {
         generalPanel.add(thinRow);
 
         JPanel fpsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        fpsRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         fpsRow.add(new JLabel("FPS limit:"));
         fpsField = new JTextField(String.valueOf(o.fpsLimit), 4);
         fpsField.getDocument().addDocumentListener(docListener(() -> {
@@ -67,135 +64,88 @@ public class ThinCapturePluginPanel {
         mainPanel.add(generalPanel);
         mainPanel.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        // ===== Entity Counter =====
-        entityOverlayXField = field(o.entityScreenX);
-        entityOverlayYField = field(o.entityScreenY);
-        entityOverlayWField = field(o.entityScreenW);
-        entityOverlayHField = field(o.entityScreenH);
-        entityRegionXField = field(o.entityCaptureX);
-        entityRegionYField = field(o.entityCaptureY);
-        entityRegionWField = field(o.entityCaptureW);
-        entityRegionHField = field(o.entityCaptureH);
+        // ===== Captures Container =====
+        capturesContainer = new JPanel();
+        capturesContainer.setLayout(new BoxLayout(capturesContainer, BoxLayout.Y_AXIS));
+        capturesContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        entityEnableBox = new JCheckBox("Enabled");
-        entityEnableBox.setSelected(o.entityEnabled);
-        entityEnableBox.addActionListener(a -> { o.entityEnabled = entityEnableBox.isSelected(); reloadEnabled(); });
+        // Build panels for existing captures
+        for (int i = 0; i < o.captures.size(); i++) {
+            JPanel panel = buildCapturePanel(i);
+            capturePanels.add(panel);
+            capturesContainer.add(panel);
+            capturesContainer.add(Box.createRigidArea(new Dimension(0, 4)));
+        }
 
-        JCheckBox entityTextOnlyBox = new JCheckBox("Text only (keep bright pixels)");
-        entityTextOnlyBox.setSelected(o.entityTextOnly);
-        entityTextOnlyBox.addActionListener(a -> o.entityTextOnly = entityTextOnlyBox.isSelected());
+        mainPanel.add(capturesContainer);
 
-        JTextField entityThreshField = new JTextField(String.valueOf(o.entityTextThreshold), 3);
-        entityThreshField.getDocument().addDocumentListener(docListener(() ->
-                o.entityTextThreshold = clamp(intFrom(entityThreshField, 200), 0, 255)
-        ));
-
-        JCheckBox entityTransBgBox = new JCheckBox("Transparent background");
-        entityTransBgBox.setSelected(o.entityTransparentBg);
-        JTextField entityBgField = new JTextField(o.entityBgColor, 7);
-        entityBgField.setEnabled(!o.entityTransparentBg);
-        entityTransBgBox.addActionListener(a -> {
-            o.entityTransparentBg = entityTransBgBox.isSelected();
-            entityBgField.setEnabled(!o.entityTransparentBg);
+        // Add Capture button
+        JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
+        addRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JButton addBtn = new JButton("+ Add Capture");
+        addBtn.addActionListener(a -> {
+            String name = JOptionPane.showInputDialog(mainPanel, "Capture name:", "New Capture");
+            if (name != null && !name.trim().isEmpty()) {
+                ThinCapture.addCapture(name.trim());
+                rebuildCaptures();
+            }
         });
-        entityBgField.getDocument().addDocumentListener(docListener(() -> o.entityBgColor = entityBgField.getText().trim()));
-
-        JButton entityApply = new JButton("Apply");
-        entityApply.addActionListener(a -> {
-            o.entityScreenX = intFrom(entityOverlayXField, 0);
-            o.entityScreenY = intFrom(entityOverlayYField, 0);
-            o.entityScreenW = intFrom(entityOverlayWField, 300);
-            o.entityScreenH = intFrom(entityOverlayHField, 20);
-            o.entityCaptureX = clamp(intFrom(entityRegionXField, 0), 0, o.thinBTWidth - 1);
-            o.entityCaptureY = clamp(intFrom(entityRegionYField, 0), 0, o.thinBTHeight - 1);
-            o.entityCaptureW = clamp(intFrom(entityRegionWField, 300), 1, o.thinBTWidth - o.entityCaptureX);
-            o.entityCaptureH = clamp(intFrom(entityRegionHField, 20), 1, o.thinBTHeight - o.entityCaptureY);
-            o.entityTextThreshold = clamp(intFrom(entityThreshField, 200), 0, 255);
-            refreshFields(o, entityOverlayXField, entityOverlayYField, entityOverlayWField, entityOverlayHField,
-                    entityRegionXField, entityRegionYField, entityRegionWField, entityRegionHField, entityThreshField, true);
-        });
-
-        mainPanel.add(buildCaptureSection("Entity Counter", entityEnableBox,
-                entityOverlayXField, entityOverlayYField, entityOverlayWField, entityOverlayHField,
-                entityRegionXField, entityRegionYField, entityRegionWField, entityRegionHField,
-                entityTextOnlyBox, entityThreshField, entityTransBgBox, entityBgField, entityApply));
-        mainPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-
-        // ===== Pie Chart =====
-        pieOverlayXField = field(o.pieScreenX);
-        pieOverlayYField = field(o.pieScreenY);
-        pieOverlayWField = field(o.pieScreenW);
-        pieOverlayHField = field(o.pieScreenH);
-        pieRegionXField = field(o.pieCaptureX);
-        pieRegionYField = field(o.pieCaptureY);
-        pieRegionWField = field(o.pieCaptureW);
-        pieRegionHField = field(o.pieCaptureH);
-
-        pieEnableBox = new JCheckBox("Enabled");
-        pieEnableBox.setSelected(o.pieEnabled);
-        pieEnableBox.addActionListener(a -> { o.pieEnabled = pieEnableBox.isSelected(); reloadEnabled(); });
-
-        JCheckBox pieTextOnlyBox = new JCheckBox("Text only (keep bright pixels)");
-        pieTextOnlyBox.setSelected(o.pieTextOnly);
-        pieTextOnlyBox.addActionListener(a -> o.pieTextOnly = pieTextOnlyBox.isSelected());
-
-        JTextField pieThreshField = new JTextField(String.valueOf(o.pieTextThreshold), 3);
-        pieThreshField.getDocument().addDocumentListener(docListener(() ->
-                o.pieTextThreshold = clamp(intFrom(pieThreshField, 200), 0, 255)
-        ));
-
-        JCheckBox pieTransBgBox = new JCheckBox("Transparent background");
-        pieTransBgBox.setSelected(o.pieTransparentBg);
-        JTextField pieBgField = new JTextField(o.pieBgColor, 7);
-        pieBgField.setEnabled(!o.pieTransparentBg);
-        pieTransBgBox.addActionListener(a -> {
-            o.pieTransparentBg = pieTransBgBox.isSelected();
-            pieBgField.setEnabled(!o.pieTransparentBg);
-        });
-        pieBgField.getDocument().addDocumentListener(docListener(() -> o.pieBgColor = pieBgField.getText().trim()));
-
-        JButton pieApply = new JButton("Apply");
-        pieApply.addActionListener(a -> {
-            o.pieScreenX = intFrom(pieOverlayXField, 0);
-            o.pieScreenY = intFrom(pieOverlayYField, 0);
-            o.pieScreenW = intFrom(pieOverlayWField, 200);
-            o.pieScreenH = intFrom(pieOverlayHField, 200);
-            o.pieCaptureX = clamp(intFrom(pieRegionXField, 0), 0, o.thinBTWidth - 1);
-            o.pieCaptureY = clamp(intFrom(pieRegionYField, 0), 0, o.thinBTHeight - 1);
-            o.pieCaptureW = clamp(intFrom(pieRegionWField, 200), 1, o.thinBTWidth - o.pieCaptureX);
-            o.pieCaptureH = clamp(intFrom(pieRegionHField, 200), 1, o.thinBTHeight - o.pieCaptureY);
-            o.pieTextThreshold = clamp(intFrom(pieThreshField, 200), 0, 255);
-            refreshFields(o, pieOverlayXField, pieOverlayYField, pieOverlayWField, pieOverlayHField,
-                    pieRegionXField, pieRegionYField, pieRegionWField, pieRegionHField, pieThreshField, false);
-        });
-
-        mainPanel.add(buildCaptureSection("Pie Chart", pieEnableBox,
-                pieOverlayXField, pieOverlayYField, pieOverlayWField, pieOverlayHField,
-                pieRegionXField, pieRegionYField, pieRegionWField, pieRegionHField,
-                pieTextOnlyBox, pieThreshField, pieTransBgBox, pieBgField, pieApply));
+        addRow.add(addBtn);
+        mainPanel.add(addRow);
 
         mainPanel.add(Box.createVerticalGlue());
-        reloadEnabled();
     }
 
-    private JPanel buildCaptureSection(String title, JCheckBox enableBox,
-                                       JTextField ox, JTextField oy, JTextField ow, JTextField oh,
-                                       JTextField rx, JTextField ry, JTextField rw, JTextField rh,
-                                       JCheckBox textOnlyBox, JTextField threshField,
-                                       JCheckBox transBgBox, JTextField bgField, JButton applyBtn) {
+    private JPanel buildCapturePanel(int index) {
+        ThinCaptureOptions o = ThinCapture.getOptions();
+        CaptureConfig c = o.captures.get(index);
 
         JPanel section = new JPanel();
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
-        section.setBorder(BorderFactory.createTitledBorder(title));
+        section.setBorder(BorderFactory.createTitledBorder(c.name));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel topRow = new JPanel(new BorderLayout());
-        topRow.add(enableBox, BorderLayout.WEST);
-        topRow.add(applyBtn, BorderLayout.EAST);
+        // Top row: enabled + rename + remove + apply
+        JCheckBox enableBox = new JCheckBox("Enabled");
+        enableBox.setSelected(c.enabled);
+        enableBox.addActionListener(a -> c.enabled = enableBox.isSelected());
+
+        JButton renameBtn = new JButton("Rename");
+        renameBtn.setMargin(new Insets(1, 6, 1, 6));
+        renameBtn.addActionListener(a -> {
+            String newName = JOptionPane.showInputDialog(mainPanel, "New name:", c.name);
+            if (newName != null && !newName.trim().isEmpty()) {
+                ThinCapture.renameCapture(index, newName.trim());
+                rebuildCaptures();
+            }
+        });
+
+        JButton removeBtn = new JButton("Remove");
+        removeBtn.setMargin(new Insets(1, 6, 1, 6));
+        removeBtn.setForeground(Color.RED);
+        removeBtn.addActionListener(a -> {
+            int confirm = JOptionPane.showConfirmDialog(mainPanel,
+                    "Remove capture \"" + c.name + "\"?", "Confirm", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                ThinCapture.removeCapture(index);
+                rebuildCaptures();
+            }
+        });
+
+        JButton applyBtn = new JButton("Apply");
+        applyBtn.setMargin(new Insets(1, 6, 1, 6));
+
+        JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        topRow.add(enableBox);
+        topRow.add(renameBtn);
+        topRow.add(removeBtn);
         section.add(topRow);
 
-        // Overlay position (on your monitor)
+        // Monitor position
+        JTextField ox = field(c.screenX), oy = field(c.screenY), ow = field(c.screenW), oh = field(c.screenH);
         JPanel overlayRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        overlayRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         overlayRow.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         overlayRow.add(new JLabel("Monitor  Starting X:"));overlayRow.add(ox);
         overlayRow.add(new JLabel("Starting Y:"));overlayRow.add(oy);
@@ -212,8 +162,10 @@ public class ThinCapturePluginPanel {
         overlayRow.add(selectMonitor);
         section.add(overlayRow);
 
-        // MC region (inside Minecraft window)
+        // MC region
+        JTextField rx = field(c.captureX), ry = field(c.captureY), rw = field(c.captureW), rh = field(c.captureH);
         JPanel regionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        regionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         regionRow.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         regionRow.add(new JLabel("MC Region Starting X:"));regionRow.add(rx);
         regionRow.add(new JLabel("Starting Y:"));regionRow.add(ry);
@@ -231,78 +183,93 @@ public class ThinCapturePluginPanel {
         section.add(regionRow);
 
         // Filtering
+        JCheckBox textOnlyBox = new JCheckBox("Text only (keep bright pixels)");
+        textOnlyBox.setSelected(c.textOnly);
+        textOnlyBox.addActionListener(a -> c.textOnly = textOnlyBox.isSelected());
+
+        JTextField threshField = new JTextField(String.valueOf(c.textThreshold), 3);
+        threshField.getDocument().addDocumentListener(docListener(() ->
+                c.textThreshold = clamp(intFrom(threshField, 200), 0, 255)
+        ));
+
         JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        filterRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         filterRow.add(textOnlyBox);
         filterRow.add(new JLabel("Threshold:"));
         filterRow.add(threshField);
         section.add(filterRow);
 
-        JPanel bgRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 9, 0));
+        // Background
+        JCheckBox transBgBox = new JCheckBox("Transparent background");
+        transBgBox.setSelected(c.transparentBg);
+        JTextField bgField = new JTextField(c.bgColor, 7);
+        bgField.setEnabled(!c.transparentBg);
+        transBgBox.addActionListener(a -> {
+            c.transparentBg = transBgBox.isSelected();
+            bgField.setEnabled(!c.transparentBg);
+        });
+        bgField.getDocument().addDocumentListener(docListener(() -> c.bgColor = bgField.getText().trim()));
+
+        JPanel bgRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         bgRow.add(transBgBox);
-        bgRow.add(new JLabel("Background Color:"));
+        bgRow.add(new JLabel("Color:"));
         bgRow.add(bgField);
-        section.add(bgRow);
+
+        JPanel bgWrapper = new JPanel(new BorderLayout());
+        bgWrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        bgWrapper.add(bgRow, BorderLayout.WEST);
+        JPanel applyPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        applyPanel.add(applyBtn);
+        bgWrapper.add(applyPanel, BorderLayout.EAST);
+        section.add(bgWrapper);
+
+        // Apply button action
+        applyBtn.addActionListener(a -> {
+            c.screenX = intFrom(ox, 0);
+            c.screenY = intFrom(oy, 0);
+            c.screenW = intFrom(ow, 200);
+            c.screenH = intFrom(oh, 200);
+            c.captureX = clamp(intFrom(rx, 0), 0, o.thinBTWidth - 1);
+            c.captureY = clamp(intFrom(ry, 0), 0, o.thinBTHeight - 1);
+            c.captureW = clamp(intFrom(rw, 200), 1, o.thinBTWidth - c.captureX);
+            c.captureH = clamp(intFrom(rh, 200), 1, o.thinBTHeight - c.captureY);
+            c.textThreshold = clamp(intFrom(threshField, 200), 0, 255);
+
+            ox.setText(String.valueOf(c.screenX));
+            oy.setText(String.valueOf(c.screenY));
+            ow.setText(String.valueOf(c.screenW));
+            oh.setText(String.valueOf(c.screenH));
+            rx.setText(String.valueOf(c.captureX));
+            ry.setText(String.valueOf(c.captureY));
+            rw.setText(String.valueOf(c.captureW));
+            rh.setText(String.valueOf(c.captureH));
+            threshField.setText(String.valueOf(c.textThreshold));
+        });
 
         return section;
     }
 
-    private void refreshFields(ThinCaptureOptions o,
-                               JTextField ox, JTextField oy, JTextField ow, JTextField oh,
-                               JTextField rx, JTextField ry, JTextField rw, JTextField rh,
-                               JTextField thresh, boolean isEntity) {
-        if (isEntity) {
-            ox.setText(String.valueOf(o.entityScreenX));
-            oy.setText(String.valueOf(o.entityScreenY));
-            ow.setText(String.valueOf(o.entityScreenW));
-            oh.setText(String.valueOf(o.entityScreenH));
-            rx.setText(String.valueOf(o.entityCaptureX));
-            ry.setText(String.valueOf(o.entityCaptureY));
-            rw.setText(String.valueOf(o.entityCaptureW));
-            rh.setText(String.valueOf(o.entityCaptureH));
-            thresh.setText(String.valueOf(o.entityTextThreshold));
-        } else {
-            ox.setText(String.valueOf(o.pieScreenX));
-            oy.setText(String.valueOf(o.pieScreenY));
-            ow.setText(String.valueOf(o.pieScreenW));
-            oh.setText(String.valueOf(o.pieScreenH));
-            rx.setText(String.valueOf(o.pieCaptureX));
-            ry.setText(String.valueOf(o.pieCaptureY));
-            rw.setText(String.valueOf(o.pieCaptureW));
-            rh.setText(String.valueOf(o.pieCaptureH));
-            thresh.setText(String.valueOf(o.pieTextThreshold));
-        }
-    }
+    /**
+     * Rebuilds all capture panels from scratch.
+     */
+    private void rebuildCaptures() {
+        capturesContainer.removeAll();
+        capturePanels.clear();
 
-    private void reloadEnabled() {
         ThinCaptureOptions o = ThinCapture.getOptions();
-        setFieldsEnabled(o.entityEnabled, entityOverlayXField, entityOverlayYField, entityOverlayWField, entityOverlayHField,
-                entityRegionXField, entityRegionYField, entityRegionWField, entityRegionHField);
-        setFieldsEnabled(o.pieEnabled, pieOverlayXField, pieOverlayYField, pieOverlayWField, pieOverlayHField,
-                pieRegionXField, pieRegionYField, pieRegionWField, pieRegionHField);
-    }
+        for (int i = 0; i < o.captures.size(); i++) {
+            JPanel panel = buildCapturePanel(i);
+            capturePanels.add(panel);
+            capturesContainer.add(panel);
+            capturesContainer.add(Box.createRigidArea(new Dimension(0, 4)));
+        }
 
-    private void setFieldsEnabled(boolean enabled, JTextField... fields) {
-        for (JTextField f : fields) f.setEnabled(enabled);
+        capturesContainer.revalidate();
+        capturesContainer.repaint();
     }
 
     public void onSwitchTo() {
-        ThinCaptureOptions o = ThinCapture.getOptions();
-        entityOverlayXField.setText(String.valueOf(o.entityScreenX));
-        entityOverlayYField.setText(String.valueOf(o.entityScreenY));
-        entityOverlayWField.setText(String.valueOf(o.entityScreenW));
-        entityOverlayHField.setText(String.valueOf(o.entityScreenH));
-        entityRegionXField.setText(String.valueOf(o.entityCaptureX));
-        entityRegionYField.setText(String.valueOf(o.entityCaptureY));
-        entityRegionWField.setText(String.valueOf(o.entityCaptureW));
-        entityRegionHField.setText(String.valueOf(o.entityCaptureH));
-        pieOverlayXField.setText(String.valueOf(o.pieScreenX));
-        pieOverlayYField.setText(String.valueOf(o.pieScreenY));
-        pieOverlayWField.setText(String.valueOf(o.pieScreenW));
-        pieOverlayHField.setText(String.valueOf(o.pieScreenH));
-        pieRegionXField.setText(String.valueOf(o.pieCaptureX));
-        pieRegionYField.setText(String.valueOf(o.pieCaptureY));
-        pieRegionWField.setText(String.valueOf(o.pieCaptureW));
-        pieRegionHField.setText(String.valueOf(o.pieCaptureH));
+        rebuildCaptures();
     }
 
     // --- Utility ---

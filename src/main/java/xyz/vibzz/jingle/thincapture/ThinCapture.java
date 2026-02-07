@@ -13,6 +13,8 @@ import xyz.duncanruns.jingle.win32.User32;
 import java.awt.*;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,13 +22,17 @@ import java.util.concurrent.TimeUnit;
 
 public class ThinCapture {
     public static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor();
-    private static CaptureFrame entityFrame = null;
-    private static CaptureFrame pieChartFrame = null;
     private static ThinCaptureOptions options = null;
+    private static final List<CaptureFrame> frames = new ArrayList<>();
     private static boolean capturesShowing = false;
+    private static ThinCapturePluginPanel pluginPanel = null;
 
     public static ThinCaptureOptions getOptions() {
         return options;
+    }
+
+    public static List<CaptureFrame> getFrames() {
+        return frames;
     }
 
     public static void main(String[] args) throws IOException {
@@ -44,17 +50,50 @@ public class ThinCapture {
             Jingle.log(Level.ERROR, "Failed to load ThinCapture options, using defaults.");
         }
 
-        entityFrame = new CaptureFrame("Entity Counter");
-        pieChartFrame = new CaptureFrame("Pie Chart");
+        // Create frames for existing configs
+        for (CaptureConfig config : options.captures) {
+            frames.add(new CaptureFrame(config.name));
+        }
 
-        ThinCapturePluginPanel gui = new ThinCapturePluginPanel();
-        JingleGUI.addPluginTab("ThinCapture", gui.mainPanel, gui::onSwitchTo);
+        pluginPanel = new ThinCapturePluginPanel();
+        JingleGUI.addPluginTab("ThinCapture", pluginPanel.mainPanel, pluginPanel::onSwitchTo);
 
         PluginEvents.STOP.register(ThinCapture::stop);
 
         EXECUTOR.scheduleAtFixedRate(ThinCapture::detectThinBT, 500, 200, TimeUnit.MILLISECONDS);
 
-        Jingle.log(Level.INFO, "ThinCapture Plugin Initialized");
+        Jingle.log(Level.INFO, "ThinCapture Plugin Initialized (" + options.captures.size() + " captures)");
+    }
+
+    /**
+     * Adds a new capture config and frame.
+     */
+    public static CaptureConfig addCapture(String name) {
+        CaptureConfig config = new CaptureConfig(name);
+        options.captures.add(config);
+        CaptureFrame frame = new CaptureFrame(name);
+        frames.add(frame);
+        return config;
+    }
+
+    /**
+     * Removes a capture config and frame by index.
+     */
+    public static void removeCapture(int index) {
+        if (index < 0 || index >= options.captures.size()) return;
+        options.captures.remove(index);
+        CaptureFrame frame = frames.remove(index);
+        if (frame.isShowing()) frame.hideCapture();
+        frame.dispose();
+    }
+
+    /**
+     * Renames a capture and its frame.
+     */
+    public static void renameCapture(int index, String newName) {
+        if (index < 0 || index >= options.captures.size()) return;
+        options.captures.get(index).name = newName;
+        frames.get(index).setTitle("ThinCapture " + newName);
     }
 
     private static void detectThinBT() {
@@ -83,56 +122,46 @@ public class ThinCapture {
 
     private static void showCaptureWindows() {
         capturesShowing = true;
-        if (options.entityEnabled) {
-            entityFrame.setFilterOptions(
-                    options.entityTextOnly,
-                    options.entityTextThreshold,
-                    options.entityTransparentBg,
-                    parseColor(options.entityBgColor)
-            );
-            entityFrame.showCapture(
-                    new Rectangle(options.entityScreenX, options.entityScreenY, options.entityScreenW, options.entityScreenH),
-                    new Rectangle(options.entityCaptureX, options.entityCaptureY, options.entityCaptureW, options.entityCaptureH)
-            );
-        }
-        if (options.pieEnabled) {
-            pieChartFrame.setFilterOptions(
-                    options.pieTextOnly,
-                    options.pieTextThreshold,
-                    options.pieTransparentBg,
-                    parseColor(options.pieBgColor)
-            );
-            pieChartFrame.showCapture(
-                    new Rectangle(options.pieScreenX, options.pieScreenY, options.pieScreenW, options.pieScreenH),
-                    new Rectangle(options.pieCaptureX, options.pieCaptureY, options.pieCaptureW, options.pieCaptureH)
-            );
-        }
-    }
-
-    private static java.awt.Color parseColor(String hex) {
-        try {
-            return java.awt.Color.decode(hex);
-        } catch (Exception e) {
-            return java.awt.Color.BLACK;
+        for (int i = 0; i < options.captures.size() && i < frames.size(); i++) {
+            CaptureConfig c = options.captures.get(i);
+            CaptureFrame f = frames.get(i);
+            if (c.enabled) {
+                f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor));
+                f.showCapture(
+                        new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                        new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+                );
+            }
         }
     }
 
     private static void hideCaptureWindows() {
         capturesShowing = false;
-        if (entityFrame.isShowing()) entityFrame.hideCapture();
-        if (pieChartFrame.isShowing()) pieChartFrame.hideCapture();
+        for (CaptureFrame f : frames) {
+            if (f.isShowing()) f.hideCapture();
+        }
+    }
+
+    private static Color parseColor(String hex) {
+        try {
+            return Color.decode(hex);
+        } catch (Exception e) {
+            return Color.BLACK;
+        }
     }
 
     public static void updateFpsLimit() {
         int fps = options.fpsLimit;
-        if (entityFrame != null) entityFrame.restartDrawingTask(fps);
-        if (pieChartFrame != null) pieChartFrame.restartDrawingTask(fps);
+        for (CaptureFrame f : frames) {
+            f.restartDrawingTask(fps);
+        }
     }
 
     private static void stop() {
         EXECUTOR.shutdown();
-        if (entityFrame != null) entityFrame.dispose();
-        if (pieChartFrame != null) pieChartFrame.dispose();
+        for (CaptureFrame f : frames) {
+            f.dispose();
+        }
         if (options != null) if (!options.trySave()) Jingle.log(Level.ERROR, "Failed to save ThinCapture options!");
     }
 }
