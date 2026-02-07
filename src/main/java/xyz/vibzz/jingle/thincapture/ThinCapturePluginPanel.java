@@ -69,7 +69,6 @@ public class ThinCapturePluginPanel {
         capturesContainer.setLayout(new BoxLayout(capturesContainer, BoxLayout.Y_AXIS));
         capturesContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Build panels for existing captures
         for (int i = 0; i < o.captures.size(); i++) {
             JPanel panel = buildCapturePanel(i);
             capturePanels.add(panel);
@@ -105,7 +104,7 @@ public class ThinCapturePluginPanel {
         section.setBorder(BorderFactory.createTitledBorder(c.name));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Top row: enabled + rename + remove + apply
+        // Top row: enabled + rename + remove
         JCheckBox enableBox = new JCheckBox("Enabled");
         enableBox.setSelected(c.enabled);
         enableBox.addActionListener(a -> c.enabled = enableBox.isSelected());
@@ -151,6 +150,7 @@ public class ThinCapturePluginPanel {
         overlayRow.add(new JLabel("Starting Y:"));overlayRow.add(oy);
         overlayRow.add(new JLabel("Window Width:"));overlayRow.add(ow);
         overlayRow.add(new JLabel("Window Height:"));overlayRow.add(oh);
+
         JButton selectMonitor = new JButton("Select");
         selectMonitor.setMargin(new Insets(1, 6, 1, 6));
         selectMonitor.addActionListener(a -> RegionSelector.selectOnScreen(r -> {
@@ -160,6 +160,22 @@ public class ThinCapturePluginPanel {
             oh.setText(String.valueOf(r.height));
         }));
         overlayRow.add(selectMonitor);
+
+        JButton editMonitor = new JButton("Edit");
+        editMonitor.setMargin(new Insets(1, 6, 1, 6));
+        editMonitor.addActionListener(a -> {
+            Rectangle current = new Rectangle(
+                    intFrom(ox, 0), intFrom(oy, 0), intFrom(ow, 200), intFrom(oh, 200)
+            );
+            RegionSelector.editOnScreen(current, r -> {
+                ox.setText(String.valueOf(r.x));
+                oy.setText(String.valueOf(r.y));
+                ow.setText(String.valueOf(r.width));
+                oh.setText(String.valueOf(r.height));
+            });
+        });
+        overlayRow.add(editMonitor);
+
         section.add(overlayRow);
 
         // MC region
@@ -171,6 +187,7 @@ public class ThinCapturePluginPanel {
         regionRow.add(new JLabel("Starting Y:"));regionRow.add(ry);
         regionRow.add(new JLabel("Capture Width:"));regionRow.add(rw);
         regionRow.add(new JLabel("Capture Height:"));regionRow.add(rh);
+
         JButton selectMC = new JButton("Select");
         selectMC.setMargin(new Insets(1, 6, 1, 6));
         selectMC.addActionListener(a -> RegionSelector.selectOnMCWindow(r -> {
@@ -180,6 +197,22 @@ public class ThinCapturePluginPanel {
             rh.setText(String.valueOf(r.height));
         }));
         regionRow.add(selectMC);
+
+        JButton editMC = new JButton("Edit");
+        editMC.setMargin(new Insets(1, 6, 1, 6));
+        editMC.addActionListener(a -> {
+            Rectangle current = new Rectangle(
+                    intFrom(rx, 0), intFrom(ry, 0), intFrom(rw, 200), intFrom(rh, 200)
+            );
+            RegionSelector.editOnMCWindow(current, r -> {
+                rx.setText(String.valueOf(r.x));
+                ry.setText(String.valueOf(r.y));
+                rw.setText(String.valueOf(r.width));
+                rh.setText(String.valueOf(r.height));
+            });
+        });
+        regionRow.add(editMC);
+
         section.add(regionRow);
 
         // Filtering
@@ -249,9 +282,6 @@ public class ThinCapturePluginPanel {
         return section;
     }
 
-    /**
-     * Rebuilds all capture panels from scratch.
-     */
     private void rebuildCaptures() {
         capturesContainer.removeAll();
         capturePanels.clear();
