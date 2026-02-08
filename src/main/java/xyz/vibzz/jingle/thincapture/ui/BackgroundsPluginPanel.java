@@ -11,82 +11,169 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class EyeSeeBackgroundPluginPanel {
+public class BackgroundsPluginPanel {
     public final JPanel mainPanel;
-    private final JPanel backgroundsContainer;
+    private final JPanel thinBTContainer;
+    private final JPanel planarContainer;
+    private final JPanel eyeSeeContainer;
 
-    public EyeSeeBackgroundPluginPanel() {
+    public BackgroundsPluginPanel() {
         mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        mainPanel.add(buildGeneralPanel());
-        mainPanel.add(Box.createRigidArea(new Dimension(0, 4)));
+        // Thin BT Backgrounds Section
+        JPanel thinBTSection = new JPanel();
+        thinBTSection.setLayout(new BoxLayout(thinBTSection, BoxLayout.Y_AXIS));
+        thinBTSection.setBorder(BorderFactory.createTitledBorder("Thin BT Backgrounds"));
+        thinBTSection.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        backgroundsContainer = new JPanel();
-        backgroundsContainer.setLayout(new BoxLayout(backgroundsContainer, BoxLayout.Y_AXIS));
-        backgroundsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
-        mainPanel.add(backgroundsContainer);
+        JLabel thinBTDesc = new JLabel("Shown when Minecraft matches Thin BT dimensions");
+        thinBTDesc.setFont(thinBTDesc.getFont().deriveFont(Font.ITALIC, 11f));
+        thinBTDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
+        thinBTSection.add(thinBTDesc);
+        thinBTSection.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        mainPanel.add(buildAddButtonRow());
-        mainPanel.add(Box.createVerticalGlue());
+        thinBTContainer = new JPanel();
+        thinBTContainer.setLayout(new BoxLayout(thinBTContainer, BoxLayout.Y_AXIS));
+        thinBTContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+        thinBTSection.add(thinBTContainer);
 
-        rebuildBackgrounds();
-    }
+        JButton addThinBTBtn = new JButton("+ Add Thin BT Background");
+        addThinBTBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        addThinBTBtn.addActionListener(a -> {
+            String name = JOptionPane.showInputDialog(mainPanel, "Background name:", "Background");
+            if (name != null && !name.trim().isEmpty()) {
+                ThinCapture.addBackground(name.trim());
+                rebuildBackgrounds();
+            }
+        });
+        thinBTSection.add(addThinBTBtn);
 
-    private JPanel buildGeneralPanel() {
+        mainPanel.add(thinBTSection);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 8)));
+
+        // Planar Abuse Backgrounds Section
+        JPanel planarSection = new JPanel();
+        planarSection.setLayout(new BoxLayout(planarSection, BoxLayout.Y_AXIS));
+        planarSection.setBorder(BorderFactory.createTitledBorder("Planar Abuse Backgrounds"));
+        planarSection.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel planarDesc = new JLabel("Shown when Minecraft matches Planar Abuse dimensions");
+        planarDesc.setFont(planarDesc.getFont().deriveFont(Font.ITALIC, 11f));
+        planarDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
+        planarSection.add(planarDesc);
+        planarSection.add(Box.createRigidArea(new Dimension(0, 4)));
+
+        planarContainer = new JPanel();
+        planarContainer.setLayout(new BoxLayout(planarContainer, BoxLayout.Y_AXIS));
+        planarContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+        planarSection.add(planarContainer);
+
+        JButton addPlanarBtn = new JButton("+ Add Planar Abuse Background");
+        addPlanarBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        addPlanarBtn.addActionListener(a -> {
+            String name = JOptionPane.showInputDialog(mainPanel, "Background name:", "Background");
+            if (name != null && !name.trim().isEmpty()) {
+                ThinCapture.addPlanarBackground(name.trim());
+                rebuildBackgrounds();
+            }
+        });
+        planarSection.add(addPlanarBtn);
+
+        mainPanel.add(planarSection);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 8)));
+
+        // EyeSee Backgrounds Section
+        JPanel eyeSeeSection = new JPanel();
+        eyeSeeSection.setLayout(new BoxLayout(eyeSeeSection, BoxLayout.Y_AXIS));
+        eyeSeeSection.setBorder(BorderFactory.createTitledBorder("EyeSee Backgrounds"));
+        eyeSeeSection.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         ThinCaptureOptions o = ThinCapture.getOptions();
 
-        JPanel generalPanel = new JPanel();
-        generalPanel.setLayout(new BoxLayout(generalPanel, BoxLayout.Y_AXIS));
-        generalPanel.setBorder(BorderFactory.createTitledBorder("EyeSee Background Settings"));
-        generalPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
+        JPanel enableRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        enableRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        enableRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         JCheckBox enableBox = new JCheckBox("Enable EyeSee Backgrounds");
         enableBox.setSelected(o.eyeSeeEnabled);
         enableBox.addActionListener(a -> o.eyeSeeEnabled = enableBox.isSelected());
+        enableRow.add(enableBox);
+        JLabel eyeSeeDesc = new JLabel("Shown with EyeSee projector toggle");
+        eyeSeeDesc.setFont(eyeSeeDesc.getFont().deriveFont(Font.ITALIC, 11f));
+        enableRow.add(eyeSeeDesc);
+        eyeSeeSection.add(enableRow);
+        eyeSeeSection.add(Box.createRigidArea(new Dimension(0, 4)));
 
-        JLabel desc = new JLabel("Shows/hides with EyeSee projector toggle");
-        desc.setFont(desc.getFont().deriveFont(Font.ITALIC, 11f));
+        eyeSeeContainer = new JPanel();
+        eyeSeeContainer.setLayout(new BoxLayout(eyeSeeContainer, BoxLayout.Y_AXIS));
+        eyeSeeContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+        eyeSeeSection.add(eyeSeeContainer);
 
-        generalPanel.add(createRow(enableBox, desc));
-        return generalPanel;
-    }
-
-    private JPanel buildAddButtonRow() {
-        JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
-        addRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JButton addBgBtn = new JButton("+ Add Background");
-        addBgBtn.addActionListener(a -> {
+        JButton addEyeSeeBtn = new JButton("+ Add EyeSee Background");
+        addEyeSeeBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        addEyeSeeBtn.addActionListener(a -> {
             String name = JOptionPane.showInputDialog(mainPanel, "Background name:", "Background");
             if (name != null && !name.trim().isEmpty()) {
                 ThinCapture.addEyeSeeBackground(name.trim());
                 rebuildBackgrounds();
             }
         });
-        addRow.add(addBgBtn);
+        eyeSeeSection.add(addEyeSeeBtn);
 
-        return addRow;
+        mainPanel.add(eyeSeeSection);
+        mainPanel.add(Box.createVerticalGlue());
+
+        rebuildBackgrounds();
     }
 
-    private JPanel buildBackgroundPanel(int index) {
-        ThinCaptureOptions o = ThinCapture.getOptions();
-        BackgroundConfig bg = o.eyeSeeBackgrounds.get(index);
+    private enum BgType { THIN_BT, PLANAR, EYESEE }
 
+    private void rebuildBackgrounds() {
+        ThinCaptureOptions o = ThinCapture.getOptions();
+
+        // Rebuild Thin BT backgrounds
+        thinBTContainer.removeAll();
+        for (int i = 0; i < o.backgrounds.size(); i++) {
+            thinBTContainer.add(buildBackgroundPanel(i, o.backgrounds.get(i), BgType.THIN_BT));
+            thinBTContainer.add(Box.createRigidArea(new Dimension(0, 4)));
+        }
+        thinBTContainer.revalidate();
+        thinBTContainer.repaint();
+
+        // Rebuild Planar Abuse backgrounds
+        planarContainer.removeAll();
+        for (int i = 0; i < o.planarAbuseBackgrounds.size(); i++) {
+            planarContainer.add(buildBackgroundPanel(i, o.planarAbuseBackgrounds.get(i), BgType.PLANAR));
+            planarContainer.add(Box.createRigidArea(new Dimension(0, 4)));
+        }
+        planarContainer.revalidate();
+        planarContainer.repaint();
+
+        // Rebuild EyeSee backgrounds
+        eyeSeeContainer.removeAll();
+        for (int i = 0; i < o.eyeSeeBackgrounds.size(); i++) {
+            eyeSeeContainer.add(buildBackgroundPanel(i, o.eyeSeeBackgrounds.get(i), BgType.EYESEE));
+            eyeSeeContainer.add(Box.createRigidArea(new Dimension(0, 4)));
+        }
+        eyeSeeContainer.revalidate();
+        eyeSeeContainer.repaint();
+    }
+
+    private JPanel buildBackgroundPanel(int index, BackgroundConfig bg, BgType type) {
         JPanel section = new JPanel();
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
         section.setBorder(BorderFactory.createTitledBorder(bg.name));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        section.add(buildTopRow(index, bg));
-        section.add(buildImageRow(index, bg));
-        section.add(buildPositionRow(index, bg));
+        section.add(buildTopRow(index, bg, type));
+        section.add(buildImageRow(index, bg, type));
+        section.add(buildPositionRow(index, bg, type));
 
         return section;
     }
 
-    private JPanel buildTopRow(int index, BackgroundConfig bg) {
+    private JPanel buildTopRow(int index, BackgroundConfig bg, BgType type) {
         JCheckBox enableBox = new JCheckBox("Enabled");
         enableBox.setSelected(bg.enabled);
         enableBox.addActionListener(a -> bg.enabled = enableBox.isSelected());
@@ -94,40 +181,48 @@ public class EyeSeeBackgroundPluginPanel {
         JButton renameBtn = createSmallButton("Rename", a -> {
             String newName = JOptionPane.showInputDialog(mainPanel, "New name:", bg.name);
             if (newName != null && !newName.trim().isEmpty()) {
-                ThinCapture.renameEyeSeeBackground(index, newName.trim());
+                switch (type) {
+                    case THIN_BT: ThinCapture.renameBackground(index, newName.trim()); break;
+                    case PLANAR:  ThinCapture.renamePlanarBackground(index, newName.trim()); break;
+                    case EYESEE:  ThinCapture.renameEyeSeeBackground(index, newName.trim()); break;
+                }
                 rebuildBackgrounds();
             }
         });
 
         JButton removeBtn = createRemoveButton("background \"" + bg.name + "\"", () -> {
-            ThinCapture.removeEyeSeeBackground(index);
+            switch (type) {
+                case THIN_BT: ThinCapture.removeBackground(index); break;
+                case PLANAR:  ThinCapture.removePlanarBackground(index); break;
+                case EYESEE:  ThinCapture.removeEyeSeeBackground(index); break;
+            }
             rebuildBackgrounds();
         });
 
         return createRow(enableBox, renameBtn, removeBtn);
     }
 
-    private JPanel buildImageRow(int index, BackgroundConfig bg) {
+    private JPanel buildImageRow(int index, BackgroundConfig bg, BgType type) {
         JTextField bgPathField = new JTextField(bg.imagePath, 18);
 
         JButton browseBtn = createBrowseButton(path -> {
             bgPathField.setText(path);
             bg.imagePath = path;
-            BackgroundFrame frame = ThinCapture.getEyeSeeBgFrame(index);
+            BackgroundFrame frame = getFrameForType(index, type);
             if (frame != null) frame.loadImage(path);
         });
 
         JButton clearBtn = createSmallButton("Clear", a -> {
             bgPathField.setText("");
             bg.imagePath = "";
-            BackgroundFrame frame = ThinCapture.getEyeSeeBgFrame(index);
+            BackgroundFrame frame = getFrameForType(index, type);
             if (frame != null) frame.loadImage("");
         });
 
         return createRow(new JLabel("Image:"), bgPathField, browseBtn, clearBtn);
     }
 
-    private JPanel buildPositionRow(int index, BackgroundConfig bg) {
+    private JPanel buildPositionRow(int index, BackgroundConfig bg, BgType type) {
         JTextField bgXField = new JTextField(String.valueOf(bg.x), 4);
         JTextField bgYField = new JTextField(String.valueOf(bg.y), 4);
         JTextField bgWField = new JTextField(String.valueOf(bg.width), 5);
@@ -164,7 +259,7 @@ public class EyeSeeBackgroundPluginPanel {
             bgWField.setText(String.valueOf(bg.width));
             bgHField.setText(String.valueOf(bg.height));
 
-            BackgroundFrame frame = ThinCapture.getEyeSeeBgFrame(index);
+            BackgroundFrame frame = getFrameForType(index, type);
             if (frame != null) frame.loadImage(bg.imagePath);
         });
 
@@ -193,18 +288,13 @@ public class EyeSeeBackgroundPluginPanel {
         return posRow;
     }
 
-    private void rebuildBackgrounds() {
-        backgroundsContainer.removeAll();
-
-        ThinCaptureOptions o = ThinCapture.getOptions();
-
-        for (int i = 0; i < o.eyeSeeBackgrounds.size(); i++) {
-            backgroundsContainer.add(buildBackgroundPanel(i));
-            backgroundsContainer.add(Box.createRigidArea(new Dimension(0, 4)));
+    private BackgroundFrame getFrameForType(int index, BgType type) {
+        switch (type) {
+            case THIN_BT: return ThinCapture.getBgFrame(index);
+            case PLANAR:  return ThinCapture.getPlanarBgFrame(index);
+            case EYESEE:  return ThinCapture.getEyeSeeBgFrame(index);
+            default:      return null;
         }
-
-        backgroundsContainer.revalidate();
-        backgroundsContainer.repaint();
     }
 
     public void onSwitchTo() {

@@ -13,7 +13,8 @@ import xyz.vibzz.jingle.thincapture.config.BackgroundConfig;
 import xyz.vibzz.jingle.thincapture.config.CaptureConfig;
 import xyz.vibzz.jingle.thincapture.frame.BackgroundFrame;
 import xyz.vibzz.jingle.thincapture.frame.CaptureFrame;
-import xyz.vibzz.jingle.thincapture.ui.EyeSeeBackgroundPluginPanel;
+import xyz.vibzz.jingle.thincapture.ui.BackgroundsPluginPanel;
+import xyz.vibzz.jingle.thincapture.ui.PlanarAbusePluginPanel;
 import xyz.vibzz.jingle.thincapture.ui.ThinCapturePluginPanel;
 
 import java.awt.*;
@@ -33,6 +34,11 @@ public class ThinCapture {
     private static final List<CaptureFrame> frames = new ArrayList<>();
     private static final List<BackgroundFrame> bgFrames = new ArrayList<>();
     private static boolean thinBTShowing = false;
+
+    // Planar Abuse frames
+    private static final List<CaptureFrame> planarFrames = new ArrayList<>();
+    private static final List<BackgroundFrame> planarBgFrames = new ArrayList<>();
+    private static boolean planarShowing = false;
 
     // EyeSee frames
     private static final List<BackgroundFrame> eyeSeeBgFrames = new ArrayList<>();
@@ -68,6 +74,18 @@ public class ThinCapture {
             bgFrames.add(frame);
         }
 
+        // Initialize Planar Abuse frames
+        for (CaptureConfig config : options.planarAbuseCaptures) {
+            planarFrames.add(new CaptureFrame(config.name));
+        }
+        for (BackgroundConfig bg : options.planarAbuseBackgrounds) {
+            BackgroundFrame frame = new BackgroundFrame();
+            if (bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
+                frame.loadImage(bg.imagePath);
+            }
+            planarBgFrames.add(frame);
+        }
+
         // Initialize EyeSee frames
         for (BackgroundConfig bg : options.eyeSeeBackgrounds) {
             BackgroundFrame frame = new BackgroundFrame();
@@ -79,18 +97,24 @@ public class ThinCapture {
 
         // Add plugin tabs
         ThinCapturePluginPanel thinPanel = new ThinCapturePluginPanel();
-        JingleGUI.addPluginTab("Thin BT Capture", thinPanel.mainPanel, thinPanel::onSwitchTo);
+        JingleGUI.addPluginTab("Thin Captures", thinPanel.mainPanel, thinPanel::onSwitchTo);
 
-        EyeSeeBackgroundPluginPanel eyeSeePanel = new EyeSeeBackgroundPluginPanel();
-        JingleGUI.addPluginTab("EyeSee Background", eyeSeePanel.mainPanel, eyeSeePanel::onSwitchTo);
+        PlanarAbusePluginPanel planarPanel = new PlanarAbusePluginPanel();
+        JingleGUI.addPluginTab("Wide Captures", planarPanel.mainPanel, planarPanel::onSwitchTo);
+
+        BackgroundsPluginPanel bgPanel = new BackgroundsPluginPanel();
+        JingleGUI.addPluginTab("Backgrounds", bgPanel.mainPanel, bgPanel::onSwitchTo);
 
         // Register events
-        PluginEvents.START_TICK.register(ThinCapture::detectThinBT);
+        PluginEvents.START_TICK.register(ThinCapture::detectResize);
         PluginEvents.SHOW_PROJECTOR.register(ThinCapture::showEyeSeeCaptures);
         PluginEvents.DUMP_PROJECTOR.register(ThinCapture::hideEyeSeeCaptures);
         PluginEvents.STOP.register(ThinCapture::stop);
 
-        Jingle.log(Level.INFO, "Thin BT Capture Plugin Initialized (" + options.captures.size() + " thin captures, " + options.eyeSeeBackgrounds.size() + " eyesee backgrounds)");
+        Jingle.log(Level.INFO, "ThinCapture Plugin Initialized (" +
+                options.captures.size() + " thin captures, " +
+                options.planarAbuseCaptures.size() + " planar captures, " +
+                options.eyeSeeBackgrounds.size() + " eyesee backgrounds)");
     }
 
     // ===== Thin BT Methods =====
@@ -111,7 +135,7 @@ public class ThinCapture {
     public static void renameCapture(int index, String newName) {
         if (index < 0 || index >= options.captures.size()) return;
         options.captures.get(index).name = newName;
-        frames.get(index).setTitle("Thin BT Capture " + newName);
+        frames.get(index).setTitle("ThinCapture " + newName);
     }
 
     public static void addBackground(String name) {
@@ -137,6 +161,52 @@ public class ThinCapture {
     public static BackgroundFrame getBgFrame(int index) {
         if (index < 0 || index >= bgFrames.size()) return null;
         return bgFrames.get(index);
+    }
+
+    // ===== Planar Abuse Methods =====
+
+    public static void addPlanarCapture(String name) {
+        options.planarAbuseCaptures.add(new CaptureConfig(name));
+        planarFrames.add(new CaptureFrame(name));
+    }
+
+    public static void removePlanarCapture(int index) {
+        if (index < 0 || index >= options.planarAbuseCaptures.size()) return;
+        options.planarAbuseCaptures.remove(index);
+        CaptureFrame frame = planarFrames.remove(index);
+        if (frame.isShowing()) frame.hideCapture();
+        frame.dispose();
+    }
+
+    public static void renamePlanarCapture(int index, String newName) {
+        if (index < 0 || index >= options.planarAbuseCaptures.size()) return;
+        options.planarAbuseCaptures.get(index).name = newName;
+        planarFrames.get(index).setTitle("ThinCapture " + newName);
+    }
+
+    public static void addPlanarBackground(String name) {
+        BackgroundConfig config = new BackgroundConfig(name);
+        config.enabled = true;
+        options.planarAbuseBackgrounds.add(config);
+        planarBgFrames.add(new BackgroundFrame());
+    }
+
+    public static void removePlanarBackground(int index) {
+        if (index < 0 || index >= options.planarAbuseBackgrounds.size()) return;
+        options.planarAbuseBackgrounds.remove(index);
+        BackgroundFrame frame = planarBgFrames.remove(index);
+        if (frame.isShowing()) frame.hideBackground();
+        frame.dispose();
+    }
+
+    public static void renamePlanarBackground(int index, String newName) {
+        if (index < 0 || index >= options.planarAbuseBackgrounds.size()) return;
+        options.planarAbuseBackgrounds.get(index).name = newName;
+    }
+
+    public static BackgroundFrame getPlanarBgFrame(int index) {
+        if (index < 0 || index >= planarBgFrames.size()) return null;
+        return planarBgFrames.get(index);
     }
 
     // ===== EyeSee Methods =====
@@ -166,12 +236,13 @@ public class ThinCapture {
         return eyeSeeBgFrames.get(index);
     }
 
-    // ===== Thin BT Detection =====
+    // ===== Resize Detection =====
 
-    private static void detectThinBT() {
+    private static void detectResize() {
         try {
             if (!Jingle.getMainInstance().isPresent()) {
                 if (thinBTShowing) hideThinBTCaptures();
+                if (planarShowing) hidePlanarCaptures();
                 return;
             }
 
@@ -182,7 +253,9 @@ public class ThinCapture {
             int h = rect.bottom - rect.top;
 
             boolean isThinBT = (w == options.thinBTWidth && h == options.thinBTHeight);
+            boolean isPlanar = (w == options.planarAbuseWidth && h == options.planarAbuseHeight);
 
+            // Thin BT
             if (isThinBT && !thinBTShowing) {
                 showThinBTCaptures();
             } else if (!isThinBT && thinBTShowing) {
@@ -192,8 +265,21 @@ public class ThinCapture {
                     if (bf.isShowing()) bf.sendBehindMC();
                 }
             }
+
+            // Planar Abuse
+            if (isPlanar && !planarShowing) {
+                showPlanarCaptures();
+            } else if (!isPlanar && planarShowing) {
+                hidePlanarCaptures();
+            } else if (isPlanar) {
+                for (BackgroundFrame bf : planarBgFrames) {
+                    if (bf.isShowing()) bf.sendBehindMC();
+                }
+            }
         } catch (Exception ignored) {}
     }
+
+    // ===== Thin BT Show/Hide =====
 
     private static void showThinBTCaptures() {
         thinBTShowing = true;
@@ -242,6 +328,55 @@ public class ThinCapture {
         }
     }
 
+    // ===== Planar Abuse Show/Hide =====
+
+    private static void showPlanarCaptures() {
+        planarShowing = true;
+
+        for (int i = 0; i < options.planarAbuseBackgrounds.size() && i < planarBgFrames.size(); i++) {
+            BackgroundConfig bg = options.planarAbuseBackgrounds.get(i);
+            BackgroundFrame bf = planarBgFrames.get(i);
+            if (bg.enabled && bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
+                bf.positionBackground(bg.x, bg.y, bg.width, bg.height);
+            }
+        }
+
+        List<CaptureFrame> toShow = new ArrayList<>();
+        for (int i = 0; i < options.planarAbuseCaptures.size() && i < planarFrames.size(); i++) {
+            CaptureConfig c = options.planarAbuseCaptures.get(i);
+            CaptureFrame f = planarFrames.get(i);
+            if (c.enabled) {
+                f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+                f.positionCapture(
+                        new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                        new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+                );
+                toShow.add(f);
+            }
+        }
+
+        for (int i = 0; i < options.planarAbuseBackgrounds.size() && i < planarBgFrames.size(); i++) {
+            BackgroundConfig bg = options.planarAbuseBackgrounds.get(i);
+            BackgroundFrame bf = planarBgFrames.get(i);
+            if (bg.enabled && bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
+                bf.showBackground();
+            }
+        }
+        for (CaptureFrame f : toShow) {
+            f.showCapture();
+        }
+    }
+
+    private static void hidePlanarCaptures() {
+        planarShowing = false;
+        for (BackgroundFrame bf : planarBgFrames) {
+            if (bf.isShowing()) bf.hideBackground();
+        }
+        for (CaptureFrame f : planarFrames) {
+            if (f.isShowing()) f.hideCapture();
+        }
+    }
+
     // ===== EyeSee Show/Hide =====
 
     private static void showEyeSeeCaptures() {
@@ -281,12 +416,18 @@ public class ThinCapture {
         for (CaptureFrame f : frames) {
             f.restartDrawingTask(fps);
         }
+        int planarFps = options.planarAbuseFpsLimit;
+        for (CaptureFrame f : planarFrames) {
+            f.restartDrawingTask(planarFps);
+        }
     }
 
     private static void stop() {
         EXECUTOR.shutdown();
         for (CaptureFrame f : frames) f.dispose();
         for (BackgroundFrame bf : bgFrames) bf.dispose();
+        for (CaptureFrame f : planarFrames) f.dispose();
+        for (BackgroundFrame bf : planarBgFrames) bf.dispose();
         for (BackgroundFrame bf : eyeSeeBgFrames) bf.dispose();
         if (options != null) if (!options.trySave()) Jingle.log(Level.ERROR, "Failed to save ThinCapture options!");
     }

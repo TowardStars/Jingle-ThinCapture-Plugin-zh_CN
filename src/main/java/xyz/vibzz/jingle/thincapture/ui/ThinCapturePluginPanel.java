@@ -2,9 +2,7 @@ package xyz.vibzz.jingle.thincapture.ui;
 
 import xyz.vibzz.jingle.thincapture.ThinCapture;
 import xyz.vibzz.jingle.thincapture.ThinCaptureOptions;
-import xyz.vibzz.jingle.thincapture.config.BackgroundConfig;
 import xyz.vibzz.jingle.thincapture.config.CaptureConfig;
-import xyz.vibzz.jingle.thincapture.frame.BackgroundFrame;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -95,123 +93,7 @@ public class ThinCapturePluginPanel {
         });
         addRow.add(addBtn);
 
-        JButton addBgBtn = new JButton("+ Add Background");
-        addBgBtn.addActionListener(a -> {
-            String name = JOptionPane.showInputDialog(mainPanel, "Background name:", "Background");
-            if (name != null && !name.trim().isEmpty()) {
-                ThinCapture.addBackground(name.trim());
-                rebuildCaptures();
-            }
-        });
-        addRow.add(addBgBtn);
-
         return addRow;
-    }
-
-    // ===== Background Panel =====
-
-    private JPanel buildBackgroundPanel(int index) {
-        ThinCaptureOptions o = ThinCapture.getOptions();
-        BackgroundConfig bg = o.backgrounds.get(index);
-
-        JPanel section = new JPanel();
-        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
-        section.setBorder(BorderFactory.createTitledBorder(bg.name));
-        section.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        section.add(buildBackgroundTopRow(index, bg));
-        section.add(buildBackgroundImageRow(index, bg));
-        section.add(buildBackgroundPositionRow(index, bg));
-
-        return section;
-    }
-
-    private JPanel buildBackgroundTopRow(int index, BackgroundConfig bg) {
-        JCheckBox enableBox = new JCheckBox("Enabled");
-        enableBox.setSelected(bg.enabled);
-        enableBox.addActionListener(a -> bg.enabled = enableBox.isSelected());
-
-        JButton renameBtn = createSmallButton("Rename", a -> {
-            String newName = JOptionPane.showInputDialog(mainPanel, "New name:", bg.name);
-            if (newName != null && !newName.trim().isEmpty()) {
-                ThinCapture.renameBackground(index, newName.trim());
-                rebuildCaptures();
-            }
-        });
-
-        JButton removeBtn = createRemoveButton("background \"" + bg.name + "\"", () -> {
-            ThinCapture.removeBackground(index);
-            rebuildCaptures();
-        });
-
-        return createRow(enableBox, renameBtn, removeBtn);
-    }
-
-    private JPanel buildBackgroundImageRow(int index, BackgroundConfig bg) {
-        JTextField bgPathField = new JTextField(bg.imagePath, 18);
-
-        JButton browseBtn = createBrowseButton(path -> {
-            bgPathField.setText(path);
-            bg.imagePath = path;
-            BackgroundFrame frame = ThinCapture.getBgFrame(index);
-            if (frame != null) frame.loadImage(path);
-        });
-
-        JButton clearBtn = createSmallButton("Clear", a -> {
-            bgPathField.setText("");
-            bg.imagePath = "";
-            BackgroundFrame frame = ThinCapture.getBgFrame(index);
-            if (frame != null) frame.loadImage("");
-        });
-
-        return createRow(new JLabel("Image:"), bgPathField, browseBtn, clearBtn);
-    }
-
-    private JPanel buildBackgroundPositionRow(int index, BackgroundConfig bg) {
-        JTextField bgXField = new JTextField(String.valueOf(bg.x), 4);
-        JTextField bgYField = new JTextField(String.valueOf(bg.y), 4);
-        JTextField bgWField = new JTextField(String.valueOf(bg.width), 5);
-        JTextField bgHField = new JTextField(String.valueOf(bg.height), 5);
-
-        Consumer<Rectangle> onRegionSelected = r -> {
-            bgXField.setText(String.valueOf(r.x));
-            bgYField.setText(String.valueOf(r.y));
-            bgWField.setText(String.valueOf(r.width));
-            bgHField.setText(String.valueOf(r.height));
-            bg.x = r.x;
-            bg.y = r.y;
-            bg.width = r.width;
-            bg.height = r.height;
-        };
-
-        JButton selectBtn = createSmallButton("Select", a -> RegionSelector.selectOnScreen(onRegionSelected));
-
-        JButton editBtn = createSmallButton("Edit", a -> {
-            Rectangle current = new Rectangle(
-                    intFrom(bgXField, 0), intFrom(bgYField, 0), intFrom(bgWField, 1920), intFrom(bgHField, 1080)
-            );
-            RegionSelector.editOnScreen(current, onRegionSelected);
-        });
-
-        JButton applyBtn = createSmallButton("Apply", a -> {
-            bg.x = intFrom(bgXField, 0);
-            bg.y = intFrom(bgYField, 0);
-            bg.width = Math.max(1, intFrom(bgWField, 1920));
-            bg.height = Math.max(1, intFrom(bgHField, 1080));
-
-            bgXField.setText(String.valueOf(bg.x));
-            bgYField.setText(String.valueOf(bg.y));
-            bgWField.setText(String.valueOf(bg.width));
-            bgHField.setText(String.valueOf(bg.height));
-
-            BackgroundFrame frame = ThinCapture.getBgFrame(index);
-            if (frame != null) frame.loadImage(bg.imagePath);
-        });
-
-        return createPositionRow(
-                bgXField, bgYField, bgWField, bgHField,
-                selectBtn, editBtn, applyBtn
-        );
     }
 
     // ===== Capture Panel =====
@@ -279,13 +161,13 @@ public class ThinCapturePluginPanel {
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
-        row.add(new JLabel("Monitor  Starting X:"));
+        row.add(new JLabel("Monitor  X:"));
         row.add(ox);
-        row.add(new JLabel("Starting Y:"));
+        row.add(new JLabel("Y:"));
         row.add(oy);
-        row.add(new JLabel("Window Width:"));
+        row.add(new JLabel("W:"));
         row.add(ow);
-        row.add(new JLabel("Window Height:"));
+        row.add(new JLabel("H:"));
         row.add(oh);
         row.add(selectBtn);
         row.add(editBtn);
@@ -318,13 +200,13 @@ public class ThinCapturePluginPanel {
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
-        row.add(new JLabel("MC Region Starting X:"));
+        row.add(new JLabel("MC Region X:"));
         row.add(rx);
-        row.add(new JLabel("Starting Y:"));
+        row.add(new JLabel("Y:"));
         row.add(ry);
-        row.add(new JLabel("Capture Width:"));
+        row.add(new JLabel("W:"));
         row.add(rw);
-        row.add(new JLabel("Capture Height:"));
+        row.add(new JLabel("H:"));
         row.add(rh);
         row.add(selectBtn);
         row.add(editBtn);
@@ -407,14 +289,10 @@ public class ThinCapturePluginPanel {
         });
 
         JButton applyBtn = createSmallButton("Apply", a -> {
-            c.screenX = intFrom(field(c.screenX), 0);
-            c.screenY = intFrom(field(c.screenY), 0);
-            c.screenW = intFrom(field(c.screenW), 200);
-            c.screenH = intFrom(field(c.screenH), 200);
-            c.captureX = clamp(intFrom(field(c.captureX), 0), 0, o.thinBTWidth - 1);
-            c.captureY = clamp(intFrom(field(c.captureY), 0), 0, o.thinBTHeight - 1);
-            c.captureW = clamp(intFrom(field(c.captureW), 200), 1, o.thinBTWidth - c.captureX);
-            c.captureH = clamp(intFrom(field(c.captureH), 200), 1, o.thinBTHeight - c.captureY);
+            c.captureX = clamp(c.captureX, 0, o.thinBTWidth - 1);
+            c.captureY = clamp(c.captureY, 0, o.thinBTHeight - 1);
+            c.captureW = clamp(c.captureW, 1, o.thinBTWidth - c.captureX);
+            c.captureH = clamp(c.captureH, 1, o.thinBTHeight - c.captureY);
             c.textThreshold = clamp(intFrom(threshField, 200), 0, 255);
             threshField.setText(String.valueOf(c.textThreshold));
         });
@@ -486,11 +364,6 @@ public class ThinCapturePluginPanel {
 
         ThinCaptureOptions o = ThinCapture.getOptions();
 
-        for (int i = 0; i < o.backgrounds.size(); i++) {
-            capturesContainer.add(buildBackgroundPanel(i));
-            capturesContainer.add(Box.createRigidArea(new Dimension(0, 4)));
-        }
-
         for (int i = 0; i < o.captures.size(); i++) {
             capturesContainer.add(buildCapturePanel(i));
             capturesContainer.add(Box.createRigidArea(new Dimension(0, 4)));
@@ -516,33 +389,6 @@ public class ThinCapturePluginPanel {
         return row;
     }
 
-    private JPanel createPositionRow(JTextField x, JTextField y, JTextField w, JTextField h,
-                                     JButton selectBtn, JButton editBtn, JButton applyBtn) {
-        JPanel posRow = new JPanel(new BorderLayout());
-        posRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
-        posRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        left.add(new JLabel("X:"));
-        left.add(x);
-        left.add(new JLabel("Y:"));
-        left.add(y);
-        left.add(new JLabel("Width:"));
-        left.add(w);
-        left.add(new JLabel("Height:"));
-        left.add(h);
-        left.add(selectBtn);
-        left.add(editBtn);
-
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        right.add(applyBtn);
-
-        posRow.add(left, BorderLayout.WEST);
-        posRow.add(right, BorderLayout.EAST);
-
-        return posRow;
-    }
-
     private JButton createSmallButton(String text, java.awt.event.ActionListener action) {
         JButton btn = new JButton(text);
         btn.setMargin(new Insets(1, 6, 1, 6));
@@ -562,21 +408,6 @@ public class ThinCapturePluginPanel {
             }
         });
         return removeBtn;
-    }
-
-    private JButton createBrowseButton(Consumer<String> onFileSelected) {
-        JButton browseBtn = new JButton("Browse...");
-        browseBtn.setMargin(new Insets(1, 6, 1, 6));
-        browseBtn.addActionListener(a -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                    "Images (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"
-            ));
-            if (chooser.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) {
-                onFileSelected.accept(chooser.getSelectedFile().getAbsolutePath());
-            }
-        });
-        return browseBtn;
     }
 
     private static JTextField field(int val) {

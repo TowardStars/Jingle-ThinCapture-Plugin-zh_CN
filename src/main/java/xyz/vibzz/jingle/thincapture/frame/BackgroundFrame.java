@@ -5,6 +5,7 @@ import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.WinDef;
 import org.apache.logging.log4j.Level;
 import xyz.duncanruns.jingle.Jingle;
+import xyz.vibzz.jingle.thincapture.util.ScaleUtil;
 import xyz.duncanruns.jingle.util.WindowStateUtil;
 import xyz.duncanruns.jingle.win32.User32;
 
@@ -58,12 +59,7 @@ public class BackgroundFrame extends JFrame {
     }
 
     public void positionBackground(int x, int y, int width, int height) {
-        User32.INSTANCE.SetWindowPos(
-                frameHwnd,
-                new WinDef.HWND(new Pointer(0)),
-                x, y, width, height,
-                User32.SWP_NOACTIVATE | User32.SWP_NOSENDCHANGING
-        );
+        setScaledWindowPos(frameHwnd, x, y, width, height);
     }
 
     public void showBackground() {
@@ -112,5 +108,22 @@ public class BackgroundFrame extends JFrame {
     public void dispose() {
         currentlyShowing = false;
         super.dispose();
+    }
+
+    /**
+     * Sets window position accounting for Windows display scaling.
+     * Coordinates passed in are logical (Java) coordinates.
+     */
+    private static void setScaledWindowPos(WinDef.HWND hwnd, int x, int y, int w, int h) {
+        float scale = ScaleUtil.getScaleFactor();
+        User32.INSTANCE.SetWindowPos(
+                hwnd,
+                new WinDef.HWND(new Pointer(0)),
+                (int) (x / scale),
+                (int) (y / scale),
+                (int) Math.floor(w / scale),
+                (int) Math.floor(h / scale),
+                User32.SWP_NOACTIVATE | User32.SWP_NOSENDCHANGING
+        );
     }
 }

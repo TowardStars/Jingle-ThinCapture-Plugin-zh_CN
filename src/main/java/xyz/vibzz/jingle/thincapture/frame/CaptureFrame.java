@@ -11,6 +11,7 @@ import xyz.duncanruns.jingle.util.WindowStateUtil;
 import xyz.duncanruns.jingle.win32.GDI32Extra;
 import xyz.duncanruns.jingle.win32.User32;
 import xyz.vibzz.jingle.thincapture.ThinCapture;
+import xyz.vibzz.jingle.thincapture.util.ScaleUtil;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -310,13 +311,15 @@ public class CaptureFrame extends JFrame {
             disableLayeredWindow();
         }
 
+        // Account for Windows display scaling
+        float scale = ScaleUtil.getScaleFactor();
         User32.INSTANCE.SetWindowPos(
                 frameHwnd,
                 new WinDef.HWND(new Pointer(0)),
-                screenPos.x,
-                screenPos.y,
-                screenPos.width,
-                screenPos.height,
+                (int) (screenPos.x / scale),
+                (int) (screenPos.y / scale),
+                (int) Math.floor(screenPos.width / scale),
+                (int) Math.floor(screenPos.height / scale),
                 SHOW_FLAGS
         );
     }

@@ -1,5 +1,7 @@
 package xyz.vibzz.jingle.thincapture.ui;
 
+import xyz.vibzz.jingle.thincapture.util.ScaleUtil;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -62,23 +64,19 @@ public class RegionSelector extends JFrame {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // Dim background
                 g2.setColor(new Color(0, 0, 0, 80));
                 g2.fillRect(0, 0, getWidth(), getHeight());
 
                 Rectangle r = getCurrentRect();
                 if (r != null && r.width > 0 && r.height > 0) {
-                    // Clear selected area
                     g2.setComposite(AlphaComposite.Clear);
                     g2.fillRect(r.x, r.y, r.width, r.height);
                     g2.setComposite(AlphaComposite.SrcOver);
 
-                    // Selection border
                     g2.setColor(Color.RED);
                     g2.setStroke(new BasicStroke(2));
                     g2.drawRect(r.x, r.y, r.width, r.height);
 
-                    // Size label
                     String label = r.width + " x " + r.height;
                     g2.setColor(Color.WHITE);
                     g2.setFont(new Font("SansSerif", Font.BOLD, 14));
@@ -88,13 +86,11 @@ public class RegionSelector extends JFrame {
                     if (labelY < 16) labelY = r.y + r.height + fm.getHeight() + 4;
                     g2.drawString(label, labelX, labelY);
 
-                    // Draw resize handles in edit mode
                     if (editMode) {
                         drawHandles(g2, r);
                     }
                 }
 
-                // Instructions
                 g2.setColor(Color.WHITE);
                 g2.setFont(new Font("SansSerif", Font.PLAIN, 16));
                 String msg = editMode
@@ -135,8 +131,6 @@ public class RegionSelector extends JFrame {
         return null;
     }
 
-    // ===== Create mode listeners =====
-
     private void setupCreateListeners(JPanel overlay) {
         this.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
@@ -166,8 +160,6 @@ public class RegionSelector extends JFrame {
             }
         });
     }
-
-    // ===== Edit mode listeners =====
 
     private void setupEditListeners(JPanel overlay) {
         overlay.addMouseListener(new MouseAdapter() {
@@ -228,7 +220,6 @@ public class RegionSelector extends JFrame {
                         break;
                 }
 
-                // Enforce minimum size
                 if (r.width >= 4 && r.height >= 4) {
                     editRect = r;
                 }
@@ -245,13 +236,9 @@ public class RegionSelector extends JFrame {
         });
     }
 
-    /**
-     * Determines what part of the rectangle the point is over.
-     */
     private DragType hitTest(Point p, Rectangle r) {
         int x = p.x, y = p.y;
 
-        // Check center move handle first
         int cx = r.x + r.width / 2;
         int cy = r.y + r.height / 2;
         int mhs = MOVE_HANDLE_SIZE / 2;
@@ -266,13 +253,11 @@ public class RegionSelector extends JFrame {
         boolean inX = x >= r.x - EDGE_TOLERANCE && x <= r.x + r.width + EDGE_TOLERANCE;
         boolean inY = y >= r.y - EDGE_TOLERANCE && y <= r.y + r.height + EDGE_TOLERANCE;
 
-        // Corners first
         if (nearLeft && nearTop) return DragType.RESIZE_NW;
         if (nearRight && nearTop) return DragType.RESIZE_NE;
         if (nearLeft && nearBottom) return DragType.RESIZE_SW;
         if (nearRight && nearBottom) return DragType.RESIZE_SE;
 
-        // Edges
         if (nearTop && inX) return DragType.RESIZE_N;
         if (nearBottom && inX) return DragType.RESIZE_S;
         if (nearLeft && inY) return DragType.RESIZE_W;
@@ -299,47 +284,38 @@ public class RegionSelector extends JFrame {
     private void drawHandles(Graphics2D g2, Rectangle r) {
         g2.setColor(Color.WHITE);
         int hs = HANDLE_SIZE;
-        // Corners
         drawHandle(g2, r.x, r.y, hs);
         drawHandle(g2, r.x + r.width, r.y, hs);
         drawHandle(g2, r.x, r.y + r.height, hs);
         drawHandle(g2, r.x + r.width, r.y + r.height, hs);
-        // Edge midpoints
         drawHandle(g2, r.x + r.width / 2, r.y, hs);
         drawHandle(g2, r.x + r.width / 2, r.y + r.height, hs);
         drawHandle(g2, r.x, r.y + r.height / 2, hs);
         drawHandle(g2, r.x + r.width, r.y + r.height / 2, hs);
 
-        // Center move handle
         int cx = r.x + r.width / 2;
         int cy = r.y + r.height / 2;
         int ms = MOVE_HANDLE_SIZE;
         int mhs = ms / 2;
 
-        // Background box
         g2.setColor(new Color(255, 255, 255, 200));
         g2.fillRoundRect(cx - mhs, cy - mhs, ms, ms, 4, 4);
         g2.setColor(Color.RED);
         g2.setStroke(new BasicStroke(1.5f));
         g2.drawRoundRect(cx - mhs, cy - mhs, ms, ms, 4, 4);
 
-        // Draw a 4-arrow move icon inside
         g2.setColor(new Color(60, 60, 60));
         g2.setStroke(new BasicStroke(1.5f));
         int arrowLen = ms / 3;
         int tipSize = 3;
-        // Up
         g2.drawLine(cx, cy - arrowLen, cx, cy + arrowLen);
         g2.drawLine(cx, cy - arrowLen, cx - tipSize, cy - arrowLen + tipSize);
         g2.drawLine(cx, cy - arrowLen, cx + tipSize, cy - arrowLen + tipSize);
-        // Down
         g2.drawLine(cx, cy + arrowLen, cx - tipSize, cy + arrowLen - tipSize);
         g2.drawLine(cx, cy + arrowLen, cx + tipSize, cy + arrowLen - tipSize);
-        // Left
         g2.drawLine(cx - arrowLen, cy, cx + arrowLen, cy);
         g2.drawLine(cx - arrowLen, cy, cx - arrowLen + tipSize, cy - tipSize);
         g2.drawLine(cx - arrowLen, cy, cx - arrowLen + tipSize, cy + tipSize);
-        // Right
         g2.drawLine(cx + arrowLen, cy, cx + arrowLen - tipSize, cy - tipSize);
         g2.drawLine(cx + arrowLen, cy, cx + arrowLen - tipSize, cy + tipSize);
 
@@ -383,7 +359,15 @@ public class RegionSelector extends JFrame {
         com.sun.jna.platform.win32.WinDef.HWND hwnd = xyz.duncanruns.jingle.Jingle.getMainInstance().get().hwnd;
         com.sun.jna.platform.win32.WinDef.RECT rect = new com.sun.jna.platform.win32.WinDef.RECT();
         xyz.duncanruns.jingle.win32.User32.INSTANCE.GetWindowRect(hwnd, rect);
-        Rectangle mcBounds = new Rectangle(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+
+        // GetWindowRect returns physical coords, multiply by scaleFactor for Java coords
+        float scale = ScaleUtil.getScaleFactor();
+        Rectangle mcBounds = new Rectangle(
+                (int) (rect.left * scale),
+                (int) (rect.top * scale),
+                (int) ((rect.right - rect.left) * scale),
+                (int) ((rect.bottom - rect.top) * scale)
+        );
         new RegionSelector("Select MC Region", mcBounds, onSelected);
     }
 
@@ -395,7 +379,15 @@ public class RegionSelector extends JFrame {
         com.sun.jna.platform.win32.WinDef.HWND hwnd = xyz.duncanruns.jingle.Jingle.getMainInstance().get().hwnd;
         com.sun.jna.platform.win32.WinDef.RECT rect = new com.sun.jna.platform.win32.WinDef.RECT();
         xyz.duncanruns.jingle.win32.User32.INSTANCE.GetWindowRect(hwnd, rect);
-        Rectangle mcBounds = new Rectangle(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+
+        // GetWindowRect returns physical coords, multiply by scaleFactor for Java coords
+        float scale = ScaleUtil.getScaleFactor();
+        Rectangle mcBounds = new Rectangle(
+                (int) (rect.left * scale),
+                (int) (rect.top * scale),
+                (int) ((rect.right - rect.left) * scale),
+                (int) ((rect.bottom - rect.top) * scale)
+        );
         new RegionSelector("Edit MC Region", mcBounds, current, onSelected);
     }
 }

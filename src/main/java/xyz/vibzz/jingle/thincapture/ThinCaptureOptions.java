@@ -24,6 +24,13 @@ public class ThinCaptureOptions {
     public List<CaptureConfig> captures = new ArrayList<>();
     public List<BackgroundConfig> backgrounds = new ArrayList<>();
 
+    // Planar Abuse settings
+    public int planarAbuseWidth = 1920;
+    public int planarAbuseHeight = 300;
+    public int planarAbuseFpsLimit = 30;
+    public List<CaptureConfig> planarAbuseCaptures = new ArrayList<>();
+    public List<BackgroundConfig> planarAbuseBackgrounds = new ArrayList<>();
+
     // EyeSee settings
     public boolean eyeSeeEnabled = false;
     public List<BackgroundConfig> eyeSeeBackgrounds = new ArrayList<>();
