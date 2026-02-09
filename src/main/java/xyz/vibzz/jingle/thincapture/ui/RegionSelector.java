@@ -93,8 +93,8 @@ public class RegionSelector extends JFrame {
                 g2.setColor(Color.WHITE);
                 g2.setFont(new Font("SansSerif", Font.PLAIN, 16));
                 String msg = editMode
-                        ? "Drag to move. Drag corners/edges to resize. Press ENTER to confirm, ESC to cancel."
-                        : "Click and drag to select. Press ESC to cancel.";
+                        ? "左键拖动来选区。拖动角或边缘以调整大小。按 Enter 确认，Esc 取消。"
+                        : "左键点击并拖动来选择。按 Esc 取消。";
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(msg, (getWidth() - fm.stringWidth(msg)) / 2, 30);
             }
@@ -358,13 +358,13 @@ public class RegionSelector extends JFrame {
     public static void selectOnScreen(Consumer<Rectangle> onSelected) {
         Rectangle screenBounds = GraphicsEnvironment.getLocalGraphicsEnvironment()
                 .getDefaultScreenDevice().getDefaultConfiguration().getBounds();
-        new RegionSelector("Select Monitor Position", screenBounds, onSelected);
+        new RegionSelector("选择投影位置", screenBounds, onSelected);
     }
 
     public static void editOnScreen(Rectangle current, Consumer<Rectangle> onSelected) {
         Rectangle screenBounds = GraphicsEnvironment.getLocalGraphicsEnvironment()
                 .getDefaultScreenDevice().getDefaultConfiguration().getBounds();
-        new RegionSelector("Edit Monitor Position", screenBounds, current, onSelected);
+        new RegionSelector("编辑投影位置", screenBounds, current, onSelected);
     }
 
     /**
@@ -378,7 +378,7 @@ public class RegionSelector extends JFrame {
      */
     public static void selectOnMCWindow(Consumer<Rectangle> onSelected) {
         if (!xyz.duncanruns.jingle.Jingle.getMainInstance().isPresent()) {
-            JOptionPane.showMessageDialog(null, "No Minecraft instance detected.", "ThinCapture", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(null, "未检测到Minecraft实例。", "ThinCapture", JOptionPane.WARNING_MESSAGE);
             return;
         }
         com.sun.jna.platform.win32.WinDef.HWND hwnd = xyz.duncanruns.jingle.Jingle.getMainInstance().get().hwnd;
@@ -396,7 +396,7 @@ public class RegionSelector extends JFrame {
         double toClientX = mcBounds.width > 0 ? (double) clientW / mcBounds.width : 1.0;
         double toClientY = mcBounds.height > 0 ? (double) clientH / mcBounds.height : 1.0;
 
-        new RegionSelector("Select MC Region", mcBounds, r -> {
+        new RegionSelector("选择要投影的MC区域", mcBounds, r -> {
             onSelected.accept(new Rectangle(
                     (int) (r.x * toClientX),
                     (int) (r.y * toClientY),
@@ -408,7 +408,7 @@ public class RegionSelector extends JFrame {
 
     public static void editOnMCWindow(Rectangle current, Consumer<Rectangle> onSelected) {
         if (!xyz.duncanruns.jingle.Jingle.getMainInstance().isPresent()) {
-            JOptionPane.showMessageDialog(null, "No Minecraft instance detected.", "ThinCapture", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(null, "未检测到Minecraft实例。", "ThinCapture", JOptionPane.WARNING_MESSAGE);
             return;
         }
         com.sun.jna.platform.win32.WinDef.HWND hwnd = xyz.duncanruns.jingle.Jingle.getMainInstance().get().hwnd;
@@ -434,7 +434,7 @@ public class RegionSelector extends JFrame {
                 (int) (current.height * toOverlayY)
         );
 
-        new RegionSelector("Edit MC Region", mcBounds, overlayRect, r -> {
+        new RegionSelector("编辑要投影的MC区域", mcBounds, overlayRect, r -> {
             onSelected.accept(new Rectangle(
                     (int) (r.x * toClientX),
                     (int) (r.y * toClientY),

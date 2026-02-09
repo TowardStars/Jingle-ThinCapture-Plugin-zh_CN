@@ -40,7 +40,7 @@ public class PlanarAbusePluginPanel {
 
         JPanel generalPanel = new JPanel();
         generalPanel.setLayout(new BoxLayout(generalPanel, BoxLayout.Y_AXIS));
-        generalPanel.setBorder(BorderFactory.createTitledBorder("General"));
+        generalPanel.setBorder(BorderFactory.createTitledBorder("常规"));
         generalPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         generalPanel.add(buildPlanarSizeRow(o));
@@ -53,18 +53,18 @@ public class PlanarAbusePluginPanel {
         JTextField planarWField = new JTextField(String.valueOf(o.planarAbuseWidth), 4);
         JTextField planarHField = new JTextField(String.valueOf(o.planarAbuseHeight), 4);
 
-        JButton planarApply = createSmallButton("Apply", a -> {
+        JButton planarApply = createSmallButton("应用", a -> {
             o.planarAbuseWidth = intFrom(planarWField, 1920);
             o.planarAbuseHeight = intFrom(planarHField, 300);
             planarWField.setText(String.valueOf(o.planarAbuseWidth));
             planarHField.setText(String.valueOf(o.planarAbuseHeight));
         });
 
-        JLabel desc = new JLabel("Must match your Planar Abuse size in the Resizing script.");
+        JLabel desc = new JLabel("必须与你在‘调整窗口大小（Resizing）’脚本的‘除雾宏（Planar Abuse）’大小一致。");
         desc.setFont(desc.getFont().deriveFont(Font.ITALIC, 11f));
 
         return createRow(
-                new JLabel("Planar Abuse size:"), planarWField, new JLabel("×"), planarHField,
+                new JLabel("除雾宏大小："), planarWField, new JLabel("×"), planarHField,
                 planarApply, desc
         );
     }
@@ -76,16 +76,16 @@ public class PlanarAbusePluginPanel {
             ThinCapture.updateFpsLimit();
         }));
 
-        return createRow(new JLabel("FPS limit:"), fpsField);
+        return createRow(new JLabel("帧率限制："), fpsField);
     }
 
     private JPanel buildAddButtonRow() {
         JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 4));
         addRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JButton addBtn = new JButton("+ Add Capture");
+        JButton addBtn = new JButton("+ 添加采集");
         addBtn.addActionListener(a -> {
-            String name = JOptionPane.showInputDialog(mainPanel, "Capture name:", "New Capture");
+            String name = JOptionPane.showInputDialog(mainPanel, "采集名称：", "新采集");
             if (name != null && !name.trim().isEmpty()) {
                 ThinCapture.addPlanarCapture(name.trim());
                 rebuildCaptures();
@@ -116,19 +116,19 @@ public class PlanarAbusePluginPanel {
     }
 
     private JPanel buildCaptureTopRow(int index, CaptureConfig c) {
-        JCheckBox enableBox = new JCheckBox("Enabled");
+        JCheckBox enableBox = new JCheckBox("开启");
         enableBox.setSelected(c.enabled);
         enableBox.addActionListener(a -> c.enabled = enableBox.isSelected());
 
-        JButton renameBtn = createSmallButton("Rename", a -> {
-            String newName = JOptionPane.showInputDialog(mainPanel, "New name:", c.name);
+        JButton renameBtn = createSmallButton("重命名", a -> {
+            String newName = JOptionPane.showInputDialog(mainPanel, "新名称：", c.name);
             if (newName != null && !newName.trim().isEmpty()) {
                 ThinCapture.renamePlanarCapture(index, newName.trim());
                 rebuildCaptures();
             }
         });
 
-        JButton removeBtn = createRemoveButton("capture \"" + c.name + "\"", () -> {
+        JButton removeBtn = createRemoveButton("采集 \"" + c.name + "\"", () -> {
             ThinCapture.removePlanarCapture(index);
             rebuildCaptures();
         });
@@ -150,14 +150,14 @@ public class PlanarAbusePluginPanel {
             c.screenH = r.height;
         };
 
-        JButton selectBtn = createSmallButton("Select", a -> RegionSelector.selectOnScreen(onRegionSelected));
+        JButton selectBtn = createSmallButton("选区", a -> RegionSelector.selectOnScreen(onRegionSelected));
 
-        JButton editBtn = createSmallButton("Edit", a -> {
+        JButton editBtn = createSmallButton("编辑", a -> {
             Rectangle current = new Rectangle(intFrom(ox, 0), intFrom(oy, 0), intFrom(ow, 200), intFrom(oh, 200));
             RegionSelector.editOnScreen(current, onRegionSelected);
         });
 
-        JButton applyBtn = createSmallButton("Apply", a -> {
+        JButton applyBtn = createSmallButton("应用", a -> {
             c.screenX = intFrom(ox, 0);
             c.screenY = intFrom(oy, 0);
             c.screenW = Math.max(1, intFrom(ow, 200));
@@ -172,13 +172,13 @@ public class PlanarAbusePluginPanel {
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
-        row.add(new JLabel("Monitor  X:"));
+        row.add(new JLabel("投影位置  水平位置:"));
         row.add(ox);
-        row.add(new JLabel("Y:"));
+        row.add(new JLabel("垂直位置:"));
         row.add(oy);
-        row.add(new JLabel("W:"));
+        row.add(new JLabel("宽度:"));
         row.add(ow);
-        row.add(new JLabel("H:"));
+        row.add(new JLabel("高度:"));
         row.add(oh);
         row.add(selectBtn);
         row.add(editBtn);
@@ -202,14 +202,14 @@ public class PlanarAbusePluginPanel {
             c.captureH = r.height;
         };
 
-        JButton selectBtn = createSmallButton("Select", a -> RegionSelector.selectOnMCWindow(onRegionSelected));
+        JButton selectBtn = createSmallButton("选区", a -> RegionSelector.selectOnMCWindow(onRegionSelected));
 
-        JButton editBtn = createSmallButton("Edit", a -> {
+        JButton editBtn = createSmallButton("编辑", a -> {
             Rectangle current = new Rectangle(intFrom(rx, 0), intFrom(ry, 0), intFrom(rw, 200), intFrom(rh, 200));
             RegionSelector.editOnMCWindow(current, onRegionSelected);
         });
 
-        JButton applyBtn = createSmallButton("Apply", a -> {
+        JButton applyBtn = createSmallButton("应用", a -> {
             c.captureX = clamp(intFrom(rx, 0), 0, o.planarAbuseWidth - 1);
             c.captureY = clamp(intFrom(ry, 0), 0, o.planarAbuseHeight - 1);
             c.captureW = clamp(Math.max(1, intFrom(rw, 200)), 1, o.planarAbuseWidth - c.captureX);
@@ -224,13 +224,13 @@ public class PlanarAbusePluginPanel {
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
-        row.add(new JLabel("MC Region X:"));
+        row.add(new JLabel("MC  区域 水平位置:"));
         row.add(rx);
-        row.add(new JLabel("Y:"));
+        row.add(new JLabel("垂直位置:"));
         row.add(ry);
-        row.add(new JLabel("W:"));
+        row.add(new JLabel("宽度:"));
         row.add(rw);
-        row.add(new JLabel("H:"));
+        row.add(new JLabel("高度:"));
         row.add(rh);
         row.add(selectBtn);
         row.add(editBtn);
@@ -244,15 +244,15 @@ public class PlanarAbusePluginPanel {
 
         JPanel section = new JPanel();
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
-        section.setBorder(BorderFactory.createTitledBorder("Transparency"));
+        section.setBorder(BorderFactory.createTitledBorder("透明度"));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
         section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
 
         // Row 1: Enable checkbox and threshold
-        JCheckBox transparencyBox = new JCheckBox("Enable (filter white text)");
+        JCheckBox transparencyBox = new JCheckBox("开启 (突出白色文本)");
         transparencyBox.setSelected(c.textOnly);
 
-        JLabel threshLabel = new JLabel("Threshold:");
+        JLabel threshLabel = new JLabel("阈值：");
         JTextField threshField = new JTextField(String.valueOf(c.textThreshold), 3);
         JLabel threshNote = new JLabel("[0-255]");
         threshNote.setFont(threshNote.getFont().deriveFont(Font.ITALIC, 10f));
@@ -267,9 +267,9 @@ public class PlanarAbusePluginPanel {
         section.add(row1);
 
         // Row 2: Background type radio buttons
-        JRadioButton bgTransparentRadio = new JRadioButton("Transparent");
-        JRadioButton bgColorRadio = new JRadioButton("Solid color");
-        JRadioButton bgImageRadio = new JRadioButton("Image");
+        JRadioButton bgTransparentRadio = new JRadioButton("透明");
+        JRadioButton bgColorRadio = new JRadioButton("纯色");
+        JRadioButton bgImageRadio = new JRadioButton("图片");
         ButtonGroup bgGroup = new ButtonGroup();
         bgGroup.add(bgTransparentRadio);
         bgGroup.add(bgColorRadio);
@@ -285,21 +285,21 @@ public class PlanarAbusePluginPanel {
 
         JPanel row2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
         row2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-        row2.add(new JLabel("Background:"));
+        row2.add(new JLabel("背景："));
         row2.add(bgTransparentRadio);
         row2.add(bgColorRadio);
         row2.add(bgImageRadio);
         section.add(row2);
 
         // Row 3: Color/Image fields and Apply button
-        JLabel colorLabel = new JLabel("Hex:");
+        JLabel colorLabel = new JLabel("十六进制颜色代码：");
         JTextField bgField = new JTextField(c.bgColor, 7);
         JTextField bgImageField = new JTextField(c.bgImagePath, 14);
 
-        JButton browseBtn = createSmallButton("Browse...", a -> {
+        JButton browseBtn = createSmallButton("浏览...", a -> {
             JFileChooser chooser = new JFileChooser();
             chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                    "Images (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"
+                    "图片 (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"
             ));
             if (chooser.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) {
                 String path = chooser.getSelectedFile().getAbsolutePath();
@@ -308,12 +308,12 @@ public class PlanarAbusePluginPanel {
             }
         });
 
-        JButton clearImgBtn = createSmallButton("Clear", a -> {
+        JButton clearImgBtn = createSmallButton("清除", a -> {
             bgImageField.setText("");
             c.bgImagePath = "";
         });
 
-        JButton applyBtn = createSmallButton("Apply", a -> {
+        JButton applyBtn = createSmallButton("应用", a -> {
             c.captureX = clamp(c.captureX, 0, o.planarAbuseWidth - 1);
             c.captureY = clamp(c.captureY, 0, o.planarAbuseHeight - 1);
             c.captureW = clamp(c.captureW, 1, o.planarAbuseWidth - c.captureX);
@@ -422,12 +422,12 @@ public class PlanarAbusePluginPanel {
     }
 
     private JButton createRemoveButton(String label, Runnable onConfirm) {
-        JButton removeBtn = new JButton("Remove");
+        JButton removeBtn = new JButton("移除");
         removeBtn.setMargin(new Insets(1, 6, 1, 6));
         removeBtn.setForeground(Color.RED);
         removeBtn.addActionListener(a -> {
             int confirm = JOptionPane.showConfirmDialog(mainPanel,
-                    "Remove " + label + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+                    "移除 " + label + "？", "确认", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 onConfirm.run();
             }
