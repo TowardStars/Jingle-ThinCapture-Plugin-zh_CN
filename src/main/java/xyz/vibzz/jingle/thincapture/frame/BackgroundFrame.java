@@ -58,6 +58,7 @@ public class BackgroundFrame extends JFrame {
     public void loadImage(String path) {
         if (path == null || path.trim().isEmpty()) {
             bgImage = null;
+            repaint();
             return;
         }
         try {
@@ -72,6 +73,7 @@ public class BackgroundFrame extends JFrame {
             bgImage = null;
             Jingle.log(Level.WARN, "ThinCapture Background: failed to load image: " + e.getMessage());
         }
+        repaint();
     }
 
     public void positionBackground(int x, int y, int width, int height) {

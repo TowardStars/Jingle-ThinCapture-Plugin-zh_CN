@@ -84,16 +84,19 @@ public class PlanarAbusePluginPanel {
         s.setBorder(BorderFactory.createTitledBorder(c.name));
         s.setAlignmentX(Component.LEFT_ALIGNMENT);
         s.add(buildCaptureTopRow(index, c));
-        s.add(buildMonitorRow(c));
-        s.add(buildMCRegionRow(c));
-        s.add(buildTransparencySection(c));
+        s.add(buildMonitorRow(index, c));
+        s.add(buildMCRegionRow(index, c));
+        s.add(buildTransparencySection(index, c));
         return s;
     }
 
     private JPanel buildCaptureTopRow(int index, CaptureConfig c) {
         JCheckBox en = new JCheckBox("Enabled");
         en.setSelected(c.enabled);
-        en.addActionListener(a -> c.enabled = en.isSelected());
+        en.addActionListener(a -> {
+            c.enabled = en.isSelected();
+            ThinCapture.setPlanarCaptureEnabled(index, c.enabled);
+        });
         JButton ren = createSmallButton("Rename", a -> {
             String n = JOptionPane.showInputDialog(mainPanel, "New name:", c.name);
             if (n != null && !n.trim().isEmpty()) { ThinCapture.renamePlanarCapture(index, n.trim()); rebuildCaptures(); }
@@ -102,44 +105,78 @@ public class PlanarAbusePluginPanel {
         return createRow(en, ren, rem);
     }
 
-    private JPanel buildMonitorRow(CaptureConfig c) {
+    private JPanel buildMonitorRow(int index, CaptureConfig c) {
         JTextField ox = field(c.screenX), oy = field(c.screenY), ow = field(c.screenW), oh = field(c.screenH);
-        Consumer<Rectangle> cb = r -> { ox.setText(""+r.x); oy.setText(""+r.y); ow.setText(""+r.width); oh.setText(""+r.height); c.screenX=r.x; c.screenY=r.y; c.screenW=r.width; c.screenH=r.height; };
+
+        Runnable applyMonitor = () -> {
+            c.screenX = intFrom(ox, 0);
+            c.screenY = intFrom(oy, 0);
+            c.screenW = Math.max(1, intFrom(ow, 200));
+            c.screenH = Math.max(1, intFrom(oh, 200));
+            ThinCapture.repositionPlanarCapture(index);
+        };
+
+        Consumer<Rectangle> cb = r -> {
+            ox.setText("" + r.x); oy.setText("" + r.y); ow.setText("" + r.width); oh.setText("" + r.height);
+            c.screenX = r.x; c.screenY = r.y; c.screenW = r.width; c.screenH = r.height;
+            ThinCapture.repositionPlanarCapture(index);
+        };
+
+        ox.getDocument().addDocumentListener(docListener(applyMonitor));
+        oy.getDocument().addDocumentListener(docListener(applyMonitor));
+        ow.getDocument().addDocumentListener(docListener(applyMonitor));
+        oh.getDocument().addDocumentListener(docListener(applyMonitor));
+
         JButton sel = createSmallButton("Select", a -> RegionSelector.selectOnScreen(cb));
-        JButton edt = createSmallButton("Edit", a -> RegionSelector.editOnScreen(new Rectangle(intFrom(ox,0),intFrom(oy,0),intFrom(ow,200),intFrom(oh,200)), cb));
-        JButton app = createSmallButton("Apply", a -> { c.screenX=intFrom(ox,0); c.screenY=intFrom(oy,0); c.screenW=Math.max(1,intFrom(ow,200)); c.screenH=Math.max(1,intFrom(oh,200)); ox.setText(""+c.screenX); oy.setText(""+c.screenY); ow.setText(""+c.screenW); oh.setText(""+c.screenH); });
+        JButton edt = createSmallButton("Edit", a -> RegionSelector.editOnScreen(new Rectangle(intFrom(ox, 0), intFrom(oy, 0), intFrom(ow, 200), intFrom(oh, 200)), cb));
+
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         row.add(new JLabel("Monitor  X:")); row.add(ox); row.add(new JLabel("Y:")); row.add(oy);
         row.add(new JLabel("W:")); row.add(ow); row.add(new JLabel("H:")); row.add(oh);
-        row.add(sel); row.add(edt); row.add(app);
+        row.add(sel); row.add(edt);
         return row;
     }
 
-    private JPanel buildMCRegionRow(CaptureConfig c) {
+    private JPanel buildMCRegionRow(int index, CaptureConfig c) {
         JTextField rx = field(c.captureX), ry = field(c.captureY), rw = field(c.captureW), rh = field(c.captureH);
-        Consumer<Rectangle> cb = r -> { rx.setText(""+r.x); ry.setText(""+r.y); rw.setText(""+r.width); rh.setText(""+r.height); c.captureX=r.x; c.captureY=r.y; c.captureW=r.width; c.captureH=r.height; };
+
+        Runnable applyRegion = () -> {
+            int ew = ThinCapture.getEffectivePlanarWidth(), eh = ThinCapture.getEffectivePlanarHeight();
+            c.captureX = clamp(intFrom(rx, 0), 0, ew - 1);
+            c.captureY = clamp(intFrom(ry, 0), 0, eh - 1);
+            c.captureW = clamp(Math.max(1, intFrom(rw, 200)), 1, ew - c.captureX);
+            c.captureH = clamp(Math.max(1, intFrom(rh, 200)), 1, eh - c.captureY);
+            ThinCapture.repositionPlanarCapture(index);
+        };
+
+        Consumer<Rectangle> cb = r -> {
+            rx.setText("" + r.x); ry.setText("" + r.y); rw.setText("" + r.width); rh.setText("" + r.height);
+            c.captureX = r.x; c.captureY = r.y; c.captureW = r.width; c.captureH = r.height;
+            ThinCapture.repositionPlanarCapture(index);
+        };
+
+        rx.getDocument().addDocumentListener(docListener(applyRegion));
+        ry.getDocument().addDocumentListener(docListener(applyRegion));
+        rw.getDocument().addDocumentListener(docListener(applyRegion));
+        rh.getDocument().addDocumentListener(docListener(applyRegion));
+
         JButton sel = createSmallButton("Select", a -> RegionSelector.selectOnMCWindow(cb));
-        JButton edt = createSmallButton("Edit", a -> RegionSelector.editOnMCWindow(new Rectangle(intFrom(rx,0),intFrom(ry,0),intFrom(rw,200),intFrom(rh,200)), cb));
-        JButton app = createSmallButton("Apply", a -> {
-            int ew=ThinCapture.getEffectivePlanarWidth(), eh=ThinCapture.getEffectivePlanarHeight();
-            c.captureX=clamp(intFrom(rx,0),0,ew-1); c.captureY=clamp(intFrom(ry,0),0,eh-1);
-            c.captureW=clamp(Math.max(1,intFrom(rw,200)),1,ew-c.captureX); c.captureH=clamp(Math.max(1,intFrom(rh,200)),1,eh-c.captureY);
-            rx.setText(""+c.captureX); ry.setText(""+c.captureY); rw.setText(""+c.captureW); rh.setText(""+c.captureH);
-        });
+        JButton edt = createSmallButton("Edit", a -> RegionSelector.editOnMCWindow(new Rectangle(intFrom(rx, 0), intFrom(ry, 0), intFrom(rw, 200), intFrom(rh, 200)), cb));
+
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
         row.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         row.add(new JLabel("MC Region X:")); row.add(rx); row.add(new JLabel("Y:")); row.add(ry);
         row.add(new JLabel("W:")); row.add(rw); row.add(new JLabel("H:")); row.add(rh);
-        row.add(sel); row.add(edt); row.add(app);
+        row.add(sel); row.add(edt);
         return row;
     }
 
-    private JPanel buildTransparencySection(CaptureConfig c) {
+    private JPanel buildTransparencySection(int index, CaptureConfig c) {
         JPanel sec = new JPanel();
         sec.setLayout(new BoxLayout(sec, BoxLayout.Y_AXIS));
         sec.setBorder(BorderFactory.createTitledBorder("Transparency"));
@@ -175,24 +212,23 @@ public class PlanarAbusePluginPanel {
         JButton brw = createSmallButton("Browse...", a -> {
             JFileChooser ch = new JFileChooser();
             ch.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Images (png, jpg, bmp, gif)", "png", "jpg", "jpeg", "bmp", "gif"));
-            if (ch.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) { String p = ch.getSelectedFile().getAbsolutePath(); iFld.setText(p); c.bgImagePath = p; }
+            if (ch.showOpenDialog(mainPanel) == JFileChooser.APPROVE_OPTION) {
+                String p = ch.getSelectedFile().getAbsolutePath();
+                iFld.setText(p);
+                c.bgImagePath = p;
+                ThinCapture.updatePlanarCaptureFilter(index);
+            }
         });
-        JButton clr = createSmallButton("Clear", a -> { iFld.setText(""); c.bgImagePath = ""; });
-        JButton app = createSmallButton("Apply", a -> {
-            int ew=ThinCapture.getEffectivePlanarWidth(), eh=ThinCapture.getEffectivePlanarHeight();
-            c.captureX=clamp(c.captureX,0,ew-1); c.captureY=clamp(c.captureY,0,eh-1);
-            c.captureW=clamp(c.captureW,1,ew-c.captureX); c.captureH=clamp(c.captureH,1,eh-c.captureY);
-            c.textThreshold=clamp(intFrom(tFld,200),0,255); tFld.setText(""+c.textThreshold);
+        JButton clr = createSmallButton("Clear", a -> {
+            iFld.setText("");
+            c.bgImagePath = "";
+            ThinCapture.updatePlanarCaptureFilter(index);
         });
 
-        JPanel r3 = new JPanel(new BorderLayout());
+        JPanel r3 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
         r3.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-        JPanel r3L = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
-        r3L.add(Box.createHorizontalStrut(16)); r3L.add(cLbl); r3L.add(cFld);
-        r3L.add(Box.createHorizontalStrut(12)); r3L.add(iFld); r3L.add(brw); r3L.add(clr);
-        JPanel r3R = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 2));
-        r3R.add(app);
-        r3.add(r3L, BorderLayout.WEST); r3.add(r3R, BorderLayout.EAST);
+        r3.add(Box.createHorizontalStrut(16)); r3.add(cLbl); r3.add(cFld);
+        r3.add(Box.createHorizontalStrut(12)); r3.add(iFld); r3.add(brw); r3.add(clr);
         sec.add(r3);
 
         Runnable upd = () -> {
@@ -202,15 +238,29 @@ public class PlanarAbusePluginPanel {
             cLbl.setEnabled(on && bgC.isSelected()); cFld.setEnabled(on && bgC.isSelected());
             iFld.setEnabled(on && bgI.isSelected()); brw.setEnabled(on && bgI.isSelected()); clr.setEnabled(on && bgI.isSelected());
         };
-        Runnable sync = () -> { c.textOnly = tBox.isSelected(); c.transparentBg = bgT.isSelected(); if (bgC.isSelected()) c.bgImagePath = ""; };
+        Runnable syncAndApply = () -> {
+            c.textOnly = tBox.isSelected();
+            c.transparentBg = bgT.isSelected();
+            if (bgC.isSelected()) c.bgImagePath = "";
+            ThinCapture.updatePlanarCaptureFilter(index);
+        };
 
-        tBox.addActionListener(a -> { sync.run(); upd.run(); });
-        bgT.addActionListener(a -> { sync.run(); upd.run(); });
-        bgC.addActionListener(a -> { sync.run(); upd.run(); });
-        bgI.addActionListener(a -> { sync.run(); upd.run(); });
-        tFld.getDocument().addDocumentListener(docListener(() -> c.textThreshold = clamp(intFrom(tFld, 200), 0, 255)));
-        cFld.getDocument().addDocumentListener(docListener(() -> c.bgColor = cFld.getText().trim()));
-        iFld.getDocument().addDocumentListener(docListener(() -> c.bgImagePath = iFld.getText().trim()));
+        tBox.addActionListener(a -> { syncAndApply.run(); upd.run(); });
+        bgT.addActionListener(a -> { syncAndApply.run(); upd.run(); });
+        bgC.addActionListener(a -> { syncAndApply.run(); upd.run(); });
+        bgI.addActionListener(a -> { syncAndApply.run(); upd.run(); });
+        tFld.getDocument().addDocumentListener(docListener(() -> {
+            c.textThreshold = clamp(intFrom(tFld, 200), 0, 255);
+            ThinCapture.updatePlanarCaptureFilter(index);
+        }));
+        cFld.getDocument().addDocumentListener(docListener(() -> {
+            c.bgColor = cFld.getText().trim();
+            ThinCapture.updatePlanarCaptureFilter(index);
+        }));
+        iFld.getDocument().addDocumentListener(docListener(() -> {
+            c.bgImagePath = iFld.getText().trim();
+            ThinCapture.updatePlanarCaptureFilter(index);
+        }));
         upd.run();
 
         return sec;
@@ -238,12 +288,12 @@ public class PlanarAbusePluginPanel {
     }
 
     private JButton createSmallButton(String text, java.awt.event.ActionListener action) {
-        JButton b = new JButton(text); b.setMargin(new Insets(1,6,1,6)); b.addActionListener(action); return b;
+        JButton b = new JButton(text); b.setMargin(new Insets(1, 6, 1, 6)); b.addActionListener(action); return b;
     }
 
     private JButton createRemoveButton(String label, Runnable onConfirm) {
-        JButton b = new JButton("Remove"); b.setMargin(new Insets(1,6,1,6)); b.setForeground(Color.RED);
-        b.addActionListener(a -> { if (JOptionPane.showConfirmDialog(mainPanel, "Remove "+label+"?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) onConfirm.run(); });
+        JButton b = new JButton("Remove"); b.setMargin(new Insets(1, 6, 1, 6)); b.setForeground(Color.RED);
+        b.addActionListener(a -> { if (JOptionPane.showConfirmDialog(mainPanel, "Remove " + label + "?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) onConfirm.run(); });
         return b;
     }
 
@@ -251,8 +301,8 @@ public class PlanarAbusePluginPanel {
 
     private static int intFrom(JTextField f, int fb) {
         String t = f.getText().trim(); boolean neg = t.startsWith("-");
-        String n = IntStream.range(0,t.length()).mapToObj(t::charAt).filter(Character::isDigit).map(String::valueOf).collect(Collectors.joining());
-        return n.isEmpty() ? fb : (neg?-1:1)*Integer.parseInt(n);
+        String n = IntStream.range(0, t.length()).mapToObj(t::charAt).filter(Character::isDigit).map(String::valueOf).collect(Collectors.joining());
+        return n.isEmpty() ? fb : (neg ? -1 : 1) * Integer.parseInt(n);
     }
 
     private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }

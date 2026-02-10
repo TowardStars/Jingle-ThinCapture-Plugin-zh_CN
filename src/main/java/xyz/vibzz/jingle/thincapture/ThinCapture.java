@@ -179,6 +179,47 @@ public class ThinCapture {
         frames.get(index).setTitle("ThinCapture " + newName);
     }
 
+    /** Instantly shows or hides a Thin BT capture frame based on enabled state. */
+    public static void setCaptureEnabled(int index, boolean enabled) {
+        if (index < 0 || index >= frames.size()) return;
+        CaptureFrame f = frames.get(index);
+        if (enabled && thinBTShowing) {
+            CaptureConfig c = options.captures.get(index);
+            f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+            f.positionCapture(
+                    new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                    new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+            );
+            f.showCapture();
+        } else {
+            if (f.isShowing()) f.hideCapture();
+        }
+    }
+
+    /** Instantly repositions a Thin BT capture frame from its config values. */
+    public static void repositionCapture(int index) {
+        if (index < 0 || index >= options.captures.size() || index >= frames.size()) return;
+        CaptureConfig c = options.captures.get(index);
+        CaptureFrame f = frames.get(index);
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
+    }
+
+    /** Instantly updates the filter/transparency settings on a Thin BT capture frame. */
+    public static void updateCaptureFilter(int index) {
+        if (index < 0 || index >= options.captures.size() || index >= frames.size()) return;
+        CaptureConfig c = options.captures.get(index);
+        CaptureFrame f = frames.get(index);
+        f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+        // Also reposition in case textOnly changed (toggles layered window)
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
+    }
+
     public static void addBackground(String name) {
         BackgroundConfig config = new BackgroundConfig(name);
         config.enabled = true;
@@ -223,6 +264,46 @@ public class ThinCapture {
         if (index < 0 || index >= options.planarAbuseCaptures.size()) return;
         options.planarAbuseCaptures.get(index).name = newName;
         planarFrames.get(index).setTitle("ThinCapture " + newName);
+    }
+
+    /** Instantly shows or hides a Planar Abuse capture frame based on enabled state. */
+    public static void setPlanarCaptureEnabled(int index, boolean enabled) {
+        if (index < 0 || index >= planarFrames.size()) return;
+        CaptureFrame f = planarFrames.get(index);
+        if (enabled && planarShowing) {
+            CaptureConfig c = options.planarAbuseCaptures.get(index);
+            f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+            f.positionCapture(
+                    new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                    new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+            );
+            f.showCapture();
+        } else {
+            if (f.isShowing()) f.hideCapture();
+        }
+    }
+
+    /** Instantly repositions a Planar Abuse capture frame from its config values. */
+    public static void repositionPlanarCapture(int index) {
+        if (index < 0 || index >= options.planarAbuseCaptures.size() || index >= planarFrames.size()) return;
+        CaptureConfig c = options.planarAbuseCaptures.get(index);
+        CaptureFrame f = planarFrames.get(index);
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
+    }
+
+    /** Instantly updates the filter/transparency settings on a Planar Abuse capture frame. */
+    public static void updatePlanarCaptureFilter(int index) {
+        if (index < 0 || index >= options.planarAbuseCaptures.size() || index >= planarFrames.size()) return;
+        CaptureConfig c = options.planarAbuseCaptures.get(index);
+        CaptureFrame f = planarFrames.get(index);
+        f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
     }
 
     public static void addPlanarBackground(String name) {
@@ -328,6 +409,11 @@ public class ThinCapture {
         for (BackgroundFrame bf : bgList) {
             if (bf.isShowing()) bf.hideBackground();
         }
+    }
+
+    /** Public entry point to force a Z-order reorder of all visible backgrounds behind MC. */
+    public static void reorderBackgroundsNow() {
+        reorderBackgrounds();
     }
 
     private static void reorderBackgrounds() {

@@ -6,6 +6,8 @@ import xyz.vibzz.jingle.thincapture.config.BackgroundConfig;
 import xyz.vibzz.jingle.thincapture.frame.BackgroundFrame;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -22,7 +24,6 @@ public class BackgroundsPluginPanel {
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        // Preload toggle
         ThinCaptureOptions o = ThinCapture.getOptions();
 
         JPanel preloadRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
@@ -38,74 +39,59 @@ public class BackgroundsPluginPanel {
         mainPanel.add(preloadRow);
         mainPanel.add(Box.createRigidArea(new Dimension(0, 8)));
 
-        // Thin BT Backgrounds Section
+        // Thin BT
         JPanel thinBTSection = new JPanel();
         thinBTSection.setLayout(new BoxLayout(thinBTSection, BoxLayout.Y_AXIS));
         thinBTSection.setBorder(BorderFactory.createTitledBorder("Thin BT Backgrounds"));
         thinBTSection.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         JLabel thinBTDesc = new JLabel("Shown when Minecraft matches Thin BT dimensions");
         thinBTDesc.setFont(thinBTDesc.getFont().deriveFont(Font.ITALIC, 11f));
         thinBTDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
         thinBTSection.add(thinBTDesc);
         thinBTSection.add(Box.createRigidArea(new Dimension(0, 4)));
-
         thinBTContainer = new JPanel();
         thinBTContainer.setLayout(new BoxLayout(thinBTContainer, BoxLayout.Y_AXIS));
         thinBTContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
         thinBTSection.add(thinBTContainer);
-
         JButton addThinBTBtn = new JButton("+ Add Thin BT Background");
         addThinBTBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
         addThinBTBtn.addActionListener(a -> {
             String name = JOptionPane.showInputDialog(mainPanel, "Background name:", "Background");
-            if (name != null && !name.trim().isEmpty()) {
-                ThinCapture.addBackground(name.trim());
-                rebuildBackgrounds();
-            }
+            if (name != null && !name.trim().isEmpty()) { ThinCapture.addBackground(name.trim()); rebuildBackgrounds(); }
         });
         thinBTSection.add(addThinBTBtn);
-
         mainPanel.add(thinBTSection);
         mainPanel.add(Box.createRigidArea(new Dimension(0, 8)));
 
-        // Planar Abuse Backgrounds Section
+        // Planar
         JPanel planarSection = new JPanel();
         planarSection.setLayout(new BoxLayout(planarSection, BoxLayout.Y_AXIS));
         planarSection.setBorder(BorderFactory.createTitledBorder("Planar Abuse Backgrounds"));
         planarSection.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         JLabel planarDesc = new JLabel("Shown when Minecraft matches Planar Abuse dimensions");
         planarDesc.setFont(planarDesc.getFont().deriveFont(Font.ITALIC, 11f));
         planarDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
         planarSection.add(planarDesc);
         planarSection.add(Box.createRigidArea(new Dimension(0, 4)));
-
         planarContainer = new JPanel();
         planarContainer.setLayout(new BoxLayout(planarContainer, BoxLayout.Y_AXIS));
         planarContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
         planarSection.add(planarContainer);
-
         JButton addPlanarBtn = new JButton("+ Add Planar Abuse Background");
         addPlanarBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
         addPlanarBtn.addActionListener(a -> {
             String name = JOptionPane.showInputDialog(mainPanel, "Background name:", "Background");
-            if (name != null && !name.trim().isEmpty()) {
-                ThinCapture.addPlanarBackground(name.trim());
-                rebuildBackgrounds();
-            }
+            if (name != null && !name.trim().isEmpty()) { ThinCapture.addPlanarBackground(name.trim()); rebuildBackgrounds(); }
         });
         planarSection.add(addPlanarBtn);
-
         mainPanel.add(planarSection);
         mainPanel.add(Box.createRigidArea(new Dimension(0, 8)));
 
-        // EyeSee Backgrounds Section
+        // EyeSee
         JPanel eyeSeeSection = new JPanel();
         eyeSeeSection.setLayout(new BoxLayout(eyeSeeSection, BoxLayout.Y_AXIS));
         eyeSeeSection.setBorder(BorderFactory.createTitledBorder("EyeSee Backgrounds"));
         eyeSeeSection.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         JPanel enableRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         enableRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         enableRow.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -118,23 +104,17 @@ public class BackgroundsPluginPanel {
         enableRow.add(eyeSeeDesc);
         eyeSeeSection.add(enableRow);
         eyeSeeSection.add(Box.createRigidArea(new Dimension(0, 4)));
-
         eyeSeeContainer = new JPanel();
         eyeSeeContainer.setLayout(new BoxLayout(eyeSeeContainer, BoxLayout.Y_AXIS));
         eyeSeeContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
         eyeSeeSection.add(eyeSeeContainer);
-
         JButton addEyeSeeBtn = new JButton("+ Add EyeSee Background");
         addEyeSeeBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
         addEyeSeeBtn.addActionListener(a -> {
             String name = JOptionPane.showInputDialog(mainPanel, "Background name:", "Background");
-            if (name != null && !name.trim().isEmpty()) {
-                ThinCapture.addEyeSeeBackground(name.trim());
-                rebuildBackgrounds();
-            }
+            if (name != null && !name.trim().isEmpty()) { ThinCapture.addEyeSeeBackground(name.trim()); rebuildBackgrounds(); }
         });
         eyeSeeSection.add(addEyeSeeBtn);
-
         mainPanel.add(eyeSeeSection);
         mainPanel.add(Box.createVerticalGlue());
 
@@ -146,7 +126,6 @@ public class BackgroundsPluginPanel {
     private void rebuildBackgrounds() {
         ThinCaptureOptions o = ThinCapture.getOptions();
 
-        // Rebuild Thin BT backgrounds
         thinBTContainer.removeAll();
         for (int i = 0; i < o.backgrounds.size(); i++) {
             thinBTContainer.add(buildBackgroundPanel(i, o.backgrounds.get(i), BgType.THIN_BT));
@@ -155,7 +134,6 @@ public class BackgroundsPluginPanel {
         thinBTContainer.revalidate();
         thinBTContainer.repaint();
 
-        // Rebuild Planar Abuse backgrounds
         planarContainer.removeAll();
         for (int i = 0; i < o.planarAbuseBackgrounds.size(); i++) {
             planarContainer.add(buildBackgroundPanel(i, o.planarAbuseBackgrounds.get(i), BgType.PLANAR));
@@ -164,7 +142,6 @@ public class BackgroundsPluginPanel {
         planarContainer.revalidate();
         planarContainer.repaint();
 
-        // Rebuild EyeSee backgrounds
         eyeSeeContainer.removeAll();
         for (int i = 0; i < o.eyeSeeBackgrounds.size(); i++) {
             eyeSeeContainer.add(buildBackgroundPanel(i, o.eyeSeeBackgrounds.get(i), BgType.EYESEE));
@@ -179,18 +156,34 @@ public class BackgroundsPluginPanel {
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
         section.setBorder(BorderFactory.createTitledBorder(bg.name));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         section.add(buildTopRow(index, bg, type));
         section.add(buildFillRow(index, bg, type));
         section.add(buildPositionRow(index, bg, type));
-
         return section;
     }
 
     private JPanel buildTopRow(int index, BackgroundConfig bg, BgType type) {
         JCheckBox enableBox = new JCheckBox("Enabled");
         enableBox.setSelected(bg.enabled);
-        enableBox.addActionListener(a -> bg.enabled = enableBox.isSelected());
+        enableBox.addActionListener(a -> {
+            bg.enabled = enableBox.isSelected();
+            BackgroundFrame frame = getFrameForType(index, type);
+            if (frame != null) {
+                if (bg.enabled) {
+                    frame.setUseImage(bg.useImage);
+                    if (bg.useImage) {
+                        frame.loadImage(bg.imagePath);
+                    } else {
+                        frame.setBgColor(parseColor(bg.bgColor));
+                    }
+                    frame.positionBackground(bg.x, bg.y, bg.width, bg.height);
+                    frame.showBackground();
+                    ThinCapture.reorderBackgroundsNow();
+                } else {
+                    frame.hideBackground();
+                }
+            }
+        });
 
         JButton renameBtn = createSmallButton("Rename", a -> {
             String newName = JOptionPane.showInputDialog(mainPanel, "New name:", bg.name);
@@ -221,18 +214,13 @@ public class BackgroundsPluginPanel {
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Row 1: Radio buttons for fill type
         JRadioButton imageRadio = new JRadioButton("Image");
         JRadioButton colorRadio = new JRadioButton("Solid color");
         ButtonGroup fillGroup = new ButtonGroup();
         fillGroup.add(imageRadio);
         fillGroup.add(colorRadio);
-
-        if (bg.useImage) {
-            imageRadio.setSelected(true);
-        } else {
-            colorRadio.setSelected(true);
-        }
+        if (bg.useImage) imageRadio.setSelected(true);
+        else colorRadio.setSelected(true);
 
         JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         row1.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
@@ -242,7 +230,6 @@ public class BackgroundsPluginPanel {
         row1.add(colorRadio);
         section.add(row1);
 
-        // Row 2: Image path + browse/clear
         JTextField bgPathField = new JTextField(bg.imagePath, 18);
 
         JButton browseBtn = createBrowseButton(path -> {
@@ -259,6 +246,10 @@ public class BackgroundsPluginPanel {
             if (frame != null) frame.loadImage("");
         });
 
+        bgPathField.getDocument().addDocumentListener(docListener(() -> {
+            bg.imagePath = bgPathField.getText().trim();
+        }));
+
         JPanel row2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         row2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row2.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -269,15 +260,14 @@ public class BackgroundsPluginPanel {
         row2.add(clearBtn);
         section.add(row2);
 
-        // Row 3: Color hex field
         JLabel colorLabel = new JLabel("Hex:");
         JTextField colorField = new JTextField(bg.bgColor, 7);
 
-        JButton colorApplyBtn = createSmallButton("Apply", a -> {
+        colorField.getDocument().addDocumentListener(docListener(() -> {
             bg.bgColor = colorField.getText().trim();
             BackgroundFrame frame = getFrameForType(index, type);
             if (frame != null) frame.setBgColor(parseColor(bg.bgColor));
-        });
+        }));
 
         JPanel row3 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         row3.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
@@ -285,10 +275,8 @@ public class BackgroundsPluginPanel {
         row3.add(Box.createHorizontalStrut(16));
         row3.add(colorLabel);
         row3.add(colorField);
-        row3.add(colorApplyBtn);
         section.add(row3);
 
-        // State management: enable/disable fields based on radio selection
         Runnable updateState = () -> {
             boolean isImage = imageRadio.isSelected();
             bgPathField.setEnabled(isImage);
@@ -296,7 +284,6 @@ public class BackgroundsPluginPanel {
             clearBtn.setEnabled(isImage);
             colorLabel.setEnabled(!isImage);
             colorField.setEnabled(!isImage);
-            colorApplyBtn.setEnabled(!isImage);
         };
 
         Runnable syncConfig = () -> {
@@ -304,7 +291,9 @@ public class BackgroundsPluginPanel {
             BackgroundFrame frame = getFrameForType(index, type);
             if (frame != null) {
                 frame.setUseImage(bg.useImage);
-                if (!bg.useImage) {
+                if (bg.useImage) {
+                    frame.loadImage(bg.imagePath);
+                } else {
                     frame.setBgColor(parseColor(bg.bgColor));
                 }
             }
@@ -312,7 +301,6 @@ public class BackgroundsPluginPanel {
 
         imageRadio.addActionListener(a -> { syncConfig.run(); updateState.run(); });
         colorRadio.addActionListener(a -> { syncConfig.run(); updateState.run(); });
-
         updateState.run();
 
         return section;
@@ -324,6 +312,17 @@ public class BackgroundsPluginPanel {
         JTextField bgWField = new JTextField(String.valueOf(bg.width), 5);
         JTextField bgHField = new JTextField(String.valueOf(bg.height), 5);
 
+        Runnable applyPosition = () -> {
+            bg.x = intFrom(bgXField, 0);
+            bg.y = intFrom(bgYField, 0);
+            bg.width = Math.max(1, intFrom(bgWField, 1920));
+            bg.height = Math.max(1, intFrom(bgHField, 1080));
+            BackgroundFrame frame = getFrameForType(index, type);
+            if (frame != null) {
+                frame.positionBackground(bg.x, bg.y, bg.width, bg.height);
+            }
+        };
+
         Consumer<Rectangle> onRegionSelected = r -> {
             bgXField.setText(String.valueOf(r.x));
             bgYField.setText(String.valueOf(r.y));
@@ -333,10 +332,18 @@ public class BackgroundsPluginPanel {
             bg.y = r.y;
             bg.width = r.width;
             bg.height = r.height;
+            BackgroundFrame frame = getFrameForType(index, type);
+            if (frame != null) {
+                frame.positionBackground(bg.x, bg.y, bg.width, bg.height);
+            }
         };
 
-        JButton selectBtn = createSmallButton("Select", a -> RegionSelector.selectOnScreen(onRegionSelected));
+        bgXField.getDocument().addDocumentListener(docListener(applyPosition));
+        bgYField.getDocument().addDocumentListener(docListener(applyPosition));
+        bgWField.getDocument().addDocumentListener(docListener(applyPosition));
+        bgHField.getDocument().addDocumentListener(docListener(applyPosition));
 
+        JButton selectBtn = createSmallButton("Select", a -> RegionSelector.selectOnScreen(onRegionSelected));
         JButton editBtn = createSmallButton("Edit", a -> {
             Rectangle current = new Rectangle(
                     intFrom(bgXField, 0), intFrom(bgYField, 0), intFrom(bgWField, 1920), intFrom(bgHField, 1080)
@@ -344,49 +351,19 @@ public class BackgroundsPluginPanel {
             RegionSelector.editOnScreen(current, onRegionSelected);
         });
 
-        JButton applyBtn = createSmallButton("Apply", a -> {
-            bg.x = intFrom(bgXField, 0);
-            bg.y = intFrom(bgYField, 0);
-            bg.width = Math.max(1, intFrom(bgWField, 1920));
-            bg.height = Math.max(1, intFrom(bgHField, 1080));
-
-            bgXField.setText(String.valueOf(bg.x));
-            bgYField.setText(String.valueOf(bg.y));
-            bgWField.setText(String.valueOf(bg.width));
-            bgHField.setText(String.valueOf(bg.height));
-
-            BackgroundFrame frame = getFrameForType(index, type);
-            if (frame != null) {
-                frame.positionBackground(bg.x, bg.y, bg.width, bg.height);
-                if (bg.useImage) {
-                    frame.loadImage(bg.imagePath);
-                } else {
-                    frame.setBgColor(parseColor(bg.bgColor));
-                }
-            }
-        });
-
-        JPanel posRow = new JPanel(new BorderLayout());
+        JPanel posRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         posRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         posRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel posRowLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        posRowLeft.add(new JLabel("X:"));
-        posRowLeft.add(bgXField);
-        posRowLeft.add(new JLabel("Y:"));
-        posRowLeft.add(bgYField);
-        posRowLeft.add(new JLabel("Width:"));
-        posRowLeft.add(bgWField);
-        posRowLeft.add(new JLabel("Height:"));
-        posRowLeft.add(bgHField);
-        posRowLeft.add(selectBtn);
-        posRowLeft.add(editBtn);
-
-        JPanel posRowRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        posRowRight.add(applyBtn);
-
-        posRow.add(posRowLeft, BorderLayout.WEST);
-        posRow.add(posRowRight, BorderLayout.EAST);
+        posRow.add(new JLabel("X:"));
+        posRow.add(bgXField);
+        posRow.add(new JLabel("Y:"));
+        posRow.add(bgYField);
+        posRow.add(new JLabel("Width:"));
+        posRow.add(bgWField);
+        posRow.add(new JLabel("Height:"));
+        posRow.add(bgHField);
+        posRow.add(selectBtn);
+        posRow.add(editBtn);
 
         return posRow;
     }
@@ -410,9 +387,7 @@ public class BackgroundsPluginPanel {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        for (Component c : components) {
-            row.add(c);
-        }
+        for (Component c : components) row.add(c);
         return row;
     }
 
@@ -430,9 +405,7 @@ public class BackgroundsPluginPanel {
         removeBtn.addActionListener(a -> {
             int confirm = JOptionPane.showConfirmDialog(mainPanel,
                     "Remove " + label + "?", "Confirm", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                onConfirm.run();
-            }
+            if (confirm == JOptionPane.YES_OPTION) onConfirm.run();
         });
         return removeBtn;
     }
@@ -453,11 +426,8 @@ public class BackgroundsPluginPanel {
     }
 
     private static Color parseColor(String hex) {
-        try {
-            return Color.decode(hex);
-        } catch (Exception e) {
-            return Color.BLACK;
-        }
+        try { return Color.decode(hex); }
+        catch (Exception e) { return Color.BLACK; }
     }
 
     private static int intFrom(JTextField f, int fallback) {
@@ -466,5 +436,13 @@ public class BackgroundsPluginPanel {
         String nums = IntStream.range(0, t.length()).mapToObj(t::charAt)
                 .filter(Character::isDigit).map(String::valueOf).collect(Collectors.joining());
         return nums.isEmpty() ? fallback : (neg ? -1 : 1) * Integer.parseInt(nums);
+    }
+
+    private static DocumentListener docListener(Runnable r) {
+        return new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { r.run(); }
+            public void removeUpdate(DocumentEvent e) { r.run(); }
+            public void changedUpdate(DocumentEvent e) {}
+        };
     }
 }
