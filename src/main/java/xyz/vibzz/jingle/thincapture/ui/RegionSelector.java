@@ -11,6 +11,8 @@ import java.util.function.Consumer;
  * Supports two modes:
  *   - Create mode: drag to draw a new rectangle
  *   - Edit mode: move/resize an existing rectangle via drag and corner handles
+ *
+ * Spans all monitors (virtual screen) so captures can be placed on any display.
  */
 public class RegionSelector extends JFrame {
     private static final int HANDLE_SIZE = 8;
@@ -20,6 +22,10 @@ public class RegionSelector extends JFrame {
     private Point startPoint = null;
     private Point endPoint = null;
     private final Consumer<Rectangle> onSelected;
+
+    /** The origin of the virtual screen bounds — used to convert between overlay-local and absolute coords. */
+    private final int originX;
+    private final int originY;
 
     // Edit mode state
     private final boolean editMode;
@@ -43,12 +49,35 @@ public class RegionSelector extends JFrame {
 
     /**
      * Full constructor — if initialRect is non-null, starts in edit mode.
+     * All coordinates in initialRect and the callback result are in absolute screen coords.
+     * Internally the overlay works in overlay-local coords (0,0 = top-left of the overlay).
      */
     public RegionSelector(String title, Rectangle bounds, Rectangle initialRect, Consumer<Rectangle> onSelected) {
         super();
-        this.onSelected = onSelected;
-        this.editMode = initialRect != null;
-        this.editRect = initialRect != null ? new Rectangle(initialRect) : null;
+        this.originX = bounds.x;
+        this.originY = bounds.y;
+
+        // Wrap the callback to convert overlay-local coords back to absolute screen coords
+        this.onSelected = r -> onSelected.accept(new Rectangle(
+                r.x + originX,
+                r.y + originY,
+                r.width,
+                r.height
+        ));
+
+        // Convert initialRect from absolute screen coords to overlay-local coords
+        if (initialRect != null) {
+            this.editMode = true;
+            this.editRect = new Rectangle(
+                    initialRect.x - originX,
+                    initialRect.y - originY,
+                    initialRect.width,
+                    initialRect.height
+            );
+        } else {
+            this.editMode = false;
+            this.editRect = null;
+        }
 
         this.setUndecorated(true);
         this.setAlwaysOnTop(true);
@@ -76,7 +105,8 @@ public class RegionSelector extends JFrame {
                     g2.setStroke(new BasicStroke(2));
                     g2.drawRect(r.x, r.y, r.width, r.height);
 
-                    String label = r.width + " x " + r.height;
+                    // Show absolute screen coords in the label so the user sees real positions
+                    String label = (r.x + originX) + ", " + (r.y + originY) + "  —  " + r.width + " x " + r.height;
                     g2.setColor(Color.WHITE);
                     g2.setFont(new Font("SansSerif", Font.BOLD, 14));
                     FontMetrics fm = g2.getFontMetrics();
@@ -115,7 +145,7 @@ public class RegionSelector extends JFrame {
                     dispose();
                 } else if (e.getKeyCode() == KeyEvent.VK_ENTER && editMode && editRect != null) {
                     dispose();
-                    onSelected.accept(new Rectangle(editRect));
+                    RegionSelector.this.onSelected.accept(new Rectangle(editRect));
                 }
             }
         });
@@ -339,10 +369,44 @@ public class RegionSelector extends JFrame {
     // ===== Static helpers =====
 
     /**
-     * Gets the display scale factor from the default screen's AffineTransform.
-     * On Java 9+ at 125% DPI this returns 1.25.
-     * On Java 8 this returns 1.0 (Java 8 is not DPI-aware).
+     * Returns the bounding rectangle that spans all monitors (the virtual screen).
+     * Coordinates may be negative if monitors are arranged to the left of or above the primary.
      */
+    private static Rectangle getVirtualScreenBounds() {
+        Rectangle virtualBounds = new Rectangle();
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        for (GraphicsDevice gd : ge.getScreenDevices()) {
+            for (GraphicsConfiguration gc : gd.getConfigurations()) {
+                virtualBounds = virtualBounds.union(gc.getBounds());
+            }
+        }
+        return virtualBounds;
+    }
+
+    /**
+     * Finds the display scale factors for the monitor that contains the given
+     * physical screen point. Falls back to the default screen if no match is found.
+     */
+    private static double[] getScaleForPhysicalPoint(int physX, int physY) {
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        for (GraphicsDevice gd : ge.getScreenDevices()) {
+            GraphicsConfiguration gc = gd.getDefaultConfiguration();
+            Rectangle screenBounds = gc.getBounds();
+            AffineTransform tx = gc.getDefaultTransform();
+            Rectangle physBounds = new Rectangle(
+                    (int) (screenBounds.x * tx.getScaleX()),
+                    (int) (screenBounds.y * tx.getScaleY()),
+                    (int) (screenBounds.width * tx.getScaleX()),
+                    (int) (screenBounds.height * tx.getScaleY())
+            );
+            if (physBounds.contains(physX, physY)) {
+                return new double[]{ tx.getScaleX(), tx.getScaleY() };
+            }
+        }
+        AffineTransform tx = ge.getDefaultScreenDevice().getDefaultConfiguration().getDefaultTransform();
+        return new double[]{ tx.getScaleX(), tx.getScaleY() };
+    }
+
     private static double getDisplayScaleX() {
         return GraphicsEnvironment.getLocalGraphicsEnvironment()
                 .getDefaultScreenDevice().getDefaultConfiguration()
@@ -356,25 +420,18 @@ public class RegionSelector extends JFrame {
     }
 
     public static void selectOnScreen(Consumer<Rectangle> onSelected) {
-        Rectangle screenBounds = GraphicsEnvironment.getLocalGraphicsEnvironment()
-                .getDefaultScreenDevice().getDefaultConfiguration().getBounds();
-        new RegionSelector("选择投影位置", screenBounds, onSelected);
+        Rectangle virtualBounds = getVirtualScreenBounds();
+        new RegionSelector("选择投影位置", virtualBounds, onSelected);
     }
 
     public static void editOnScreen(Rectangle current, Consumer<Rectangle> onSelected) {
-        Rectangle screenBounds = GraphicsEnvironment.getLocalGraphicsEnvironment()
-                .getDefaultScreenDevice().getDefaultConfiguration().getBounds();
-        new RegionSelector("编辑投影位置", screenBounds, current, onSelected);
+        Rectangle virtualBounds = getVirtualScreenBounds();
+        new RegionSelector("编辑投影位置", virtualBounds, current, onSelected);
     }
 
     /**
      * Opens a region selector overlay positioned over the MC window's client area.
      * The returned rectangle is in MC client pixel coordinates.
-     *
-     * GetWindowRect returns physical screen coords.
-     * Java's setBounds expects logical coords (physical / displayScale on Java 9+).
-     * We use ClientToScreen to find the client area's screen position,
-     * then convert to Java logical coords for the overlay.
      */
     public static void selectOnMCWindow(Consumer<Rectangle> onSelected) {
         if (!xyz.duncanruns.jingle.Jingle.getMainInstance().isPresent()) {
@@ -386,20 +443,24 @@ public class RegionSelector extends JFrame {
         Rectangle mcBounds = getMCClientBoundsInLogicalCoords(hwnd);
         if (mcBounds == null) return;
 
-        // Get MC client size for converting overlay coords back to client pixels
         com.sun.jna.platform.win32.WinDef.RECT clientRect = new com.sun.jna.platform.win32.WinDef.RECT();
         xyz.duncanruns.jingle.win32.User32.INSTANCE.GetClientRect(hwnd, clientRect);
         int clientW = clientRect.right - clientRect.left;
         int clientH = clientRect.bottom - clientRect.top;
 
-        // Ratio: overlay logical pixels -> MC client pixels
         double toClientX = mcBounds.width > 0 ? (double) clientW / mcBounds.width : 1.0;
         double toClientY = mcBounds.height > 0 ? (double) clientH / mcBounds.height : 1.0;
 
+        // For MC window selection, the overlay is positioned exactly over the MC client area.
+        // The callback from RegionSelector already adds originX/originY (the mcBounds origin),
+        // but we need coords relative to the MC client area (starting at 0,0).
+        // So we subtract mcBounds origin before scaling to client pixels.
         new RegionSelector("选择要投影的MC区域", mcBounds, r -> {
+            int relX = r.x - mcBounds.x;
+            int relY = r.y - mcBounds.y;
             onSelected.accept(new Rectangle(
-                    (int) (r.x * toClientX),
-                    (int) (r.y * toClientY),
+                    (int) (relX * toClientX),
+                    (int) (relY * toClientY),
                     (int) (r.width * toClientX),
                     (int) (r.height * toClientY)
             ));
@@ -426,75 +487,69 @@ public class RegionSelector extends JFrame {
         double toOverlayX = toClientX > 0 ? 1.0 / toClientX : 1.0;
         double toOverlayY = toClientY > 0 ? 1.0 / toClientY : 1.0;
 
-        // Convert current MC client rect to overlay coords for editing
-        Rectangle overlayRect = new Rectangle(
-                (int) (current.x * toOverlayX),
-                (int) (current.y * toOverlayY),
+        // Convert current MC client rect to absolute screen coords for the edit overlay.
+        // current is in MC client pixels (0,0 = top-left of client area).
+        // We convert to absolute logical screen coords so the RegionSelector constructor
+        // can subtract the overlay origin correctly.
+        Rectangle absoluteRect = new Rectangle(
+                mcBounds.x + (int) (current.x * toOverlayX),
+                mcBounds.y + (int) (current.y * toOverlayY),
                 (int) (current.width * toOverlayX),
                 (int) (current.height * toOverlayY)
         );
 
-        new RegionSelector("编辑要投影的MC区域", mcBounds, overlayRect, r -> {
+        new RegionSelector("编辑要投影的MC区域", mcBounds, absoluteRect, r -> {
+            int relX = r.x - mcBounds.x;
+            int relY = r.y - mcBounds.y;
             onSelected.accept(new Rectangle(
-                    (int) (r.x * toClientX),
-                    (int) (r.y * toClientY),
+                    (int) (relX * toClientX),
+                    (int) (relY * toClientY),
                     (int) (r.width * toClientX),
                     (int) (r.height * toClientY)
             ));
         });
     }
 
+    /**
+     * Computes the MC window's client area bounds in Java logical coordinates.
+     * Uses the DPI scale of the monitor the window is actually on, supporting
+     * mixed-DPI multi-monitor setups.
+     */
     private static Rectangle getMCClientBoundsInLogicalCoords(com.sun.jna.platform.win32.WinDef.HWND hwnd) {
-        // Full window rect in physical screen coords
         com.sun.jna.platform.win32.WinDef.RECT winRect = new com.sun.jna.platform.win32.WinDef.RECT();
         xyz.duncanruns.jingle.win32.User32.INSTANCE.GetWindowRect(hwnd, winRect);
         int winW = winRect.right - winRect.left;
         int winH = winRect.bottom - winRect.top;
 
-        // Client area size in client pixels
         com.sun.jna.platform.win32.WinDef.RECT clientRect = new com.sun.jna.platform.win32.WinDef.RECT();
         xyz.duncanruns.jingle.win32.User32.INSTANCE.GetClientRect(hwnd, clientRect);
         int clientW = clientRect.right - clientRect.left;
         int clientH = clientRect.bottom - clientRect.top;
 
-        // Use DWMWA_EXTENDED_FRAME_BOUNDS or compute frame sizes
-        // For standard windows: borders are symmetric left/right/bottom, title bar is on top
-        // Physical frame sizes = (winSize - clientSize_in_physical)
-        // clientSize_in_physical might differ from clientW at non-100% DPI if DWM is scaling
-        //
-        // Simplest robust approach: use the window style to compute frame sizes
-        int style = com.sun.jna.platform.win32.User32.INSTANCE.GetWindowLong(hwnd, -16); // GWL_STYLE
-        int exStyle = com.sun.jna.platform.win32.User32.INSTANCE.GetWindowLong(hwnd, -20); // GWL_EXSTYLE
+        int style = com.sun.jna.platform.win32.User32.INSTANCE.GetWindowLong(hwnd, -16);
+        int exStyle = com.sun.jna.platform.win32.User32.INSTANCE.GetWindowLong(hwnd, -20);
 
-        // Use AdjustWindowRectEx to figure out how much the frame adds
         com.sun.jna.platform.win32.WinDef.RECT frameRect = new com.sun.jna.platform.win32.WinDef.RECT();
-        frameRect.left = 0;
-        frameRect.top = 0;
-        frameRect.right = 0;
-        frameRect.bottom = 0;
+        frameRect.left = 0; frameRect.top = 0; frameRect.right = 0; frameRect.bottom = 0;
         com.sun.jna.platform.win32.User32.INSTANCE.AdjustWindowRectEx(
                 frameRect,
                 new com.sun.jna.platform.win32.WinDef.DWORD(style),
                 new com.sun.jna.platform.win32.WinDef.BOOL(false),
                 new com.sun.jna.platform.win32.WinDef.DWORD(exStyle)
         );
-        // frameRect now contains negative left/top (border + title) and positive right/bottom
-        // e.g. left=-8, top=-31, right=8, bottom=8
         int borderLeft = -frameRect.left;
         int borderTop = -frameRect.top;
 
-        // The client area starts at (winRect.left + borderLeft, winRect.top + borderTop)
-        // in physical screen coords
         int clientScreenX = winRect.left + borderLeft;
         int clientScreenY = winRect.top + borderTop;
-
-        // Physical size of the client area on screen (may differ from clientW/H if DWM is scaling)
         int physClientW = winW - borderLeft - frameRect.right;
         int physClientH = winH - borderTop - frameRect.bottom;
 
-        // Convert to Java logical coords
-        double scaleX = getDisplayScaleX();
-        double scaleY = getDisplayScaleY();
+        int windowCenterX = winRect.left + winW / 2;
+        int windowCenterY = winRect.top + winH / 2;
+        double[] scale = getScaleForPhysicalPoint(windowCenterX, windowCenterY);
+        double scaleX = scale[0];
+        double scaleY = scale[1];
 
         return new Rectangle(
                 (int) (clientScreenX / scaleX),

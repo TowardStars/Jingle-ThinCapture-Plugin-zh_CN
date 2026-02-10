@@ -16,6 +16,7 @@ import xyz.vibzz.jingle.thincapture.frame.CaptureFrame;
 import xyz.vibzz.jingle.thincapture.ui.BackgroundsPluginPanel;
 import xyz.vibzz.jingle.thincapture.ui.PlanarAbusePluginPanel;
 import xyz.vibzz.jingle.thincapture.ui.ThinCapturePluginPanel;
+import xyz.vibzz.jingle.thincapture.util.ResizingSync;
 
 import java.awt.*;
 import java.io.IOException;
@@ -54,6 +55,30 @@ public class ThinCapture {
         return options;
     }
 
+    /**
+     * Returns the effective Thin BT width, synced from the Resizing script.
+     * Falls back to the saved option value if the script key is not found.
+     */
+    public static int getEffectiveThinBTWidth() {
+        Dimension d = ResizingSync.getThinBTSize();
+        return d != null ? d.width : options.thinBTWidth;
+    }
+
+    public static int getEffectiveThinBTHeight() {
+        Dimension d = ResizingSync.getThinBTSize();
+        return d != null ? d.height : options.thinBTHeight;
+    }
+
+    public static int getEffectivePlanarWidth() {
+        Dimension d = ResizingSync.getPlanarAbuseSize();
+        return d != null ? d.width : options.planarAbuseWidth;
+    }
+
+    public static int getEffectivePlanarHeight() {
+        Dimension d = ResizingSync.getPlanarAbuseSize();
+        return d != null ? d.height : options.planarAbuseHeight;
+    }
+
     public static void main(String[] args) throws IOException {
         JingleAppLaunch.launchWithDevPlugin(args, PluginManager.JinglePluginData.fromString(
                 Resources.toString(Resources.getResource(ThinCapture.class, "/jingle.plugin.json"), Charset.defaultCharset())
@@ -69,16 +94,20 @@ public class ThinCapture {
             Jingle.log(Level.ERROR, "Failed to load ThinCapture options, using defaults.");
         }
 
+        // Log synced sizes
+        Dimension thinBT = ResizingSync.getThinBTSize();
+        Dimension planar = ResizingSync.getPlanarAbuseSize();
+        Jingle.log(Level.INFO, "ThinCapture sizes: Thin BT=" +
+                (thinBT != null ? thinBT.width + "x" + thinBT.height : "not found in Resizing script, fallback " + options.thinBTWidth + "x" + options.thinBTHeight) +
+                ", Planar=" +
+                (planar != null ? planar.width + "x" + planar.height : "not found in Resizing script, fallback " + options.planarAbuseWidth + "x" + options.planarAbuseHeight));
+
         // Initialize Thin BT frames
         for (CaptureConfig config : options.captures) {
             frames.add(new CaptureFrame(config.name));
         }
         for (BackgroundConfig bg : options.backgrounds) {
-            BackgroundFrame frame = new BackgroundFrame();
-            if (bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
-                frame.loadImage(bg.imagePath);
-            }
-            bgFrames.add(frame);
+            bgFrames.add(createBgFrame(bg));
         }
 
         // Initialize Planar Abuse frames
@@ -86,20 +115,12 @@ public class ThinCapture {
             planarFrames.add(new CaptureFrame(config.name));
         }
         for (BackgroundConfig bg : options.planarAbuseBackgrounds) {
-            BackgroundFrame frame = new BackgroundFrame();
-            if (bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
-                frame.loadImage(bg.imagePath);
-            }
-            planarBgFrames.add(frame);
+            planarBgFrames.add(createBgFrame(bg));
         }
 
         // Initialize EyeSee frames
         for (BackgroundConfig bg : options.eyeSeeBackgrounds) {
-            BackgroundFrame frame = new BackgroundFrame();
-            if (bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
-                frame.loadImage(bg.imagePath);
-            }
-            eyeSeeBgFrames.add(frame);
+            eyeSeeBgFrames.add(createBgFrame(bg));
         }
 
         // Add plugin tabs
@@ -124,6 +145,19 @@ public class ThinCapture {
                 options.eyeSeeBackgrounds.size() + " eyesee backgrounds)");
     }
 
+    private static BackgroundFrame createBgFrame(BackgroundConfig bg) {
+        BackgroundFrame frame = new BackgroundFrame();
+        frame.setUseImage(bg.useImage);
+        if (bg.useImage) {
+            if (bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
+                frame.loadImage(bg.imagePath);
+            }
+        } else {
+            frame.setBgColor(parseColor(bg.bgColor));
+        }
+        return frame;
+    }
+
     // ===== Thin BT Methods =====
 
     public static void addCapture(String name) {
@@ -143,6 +177,47 @@ public class ThinCapture {
         if (index < 0 || index >= options.captures.size()) return;
         options.captures.get(index).name = newName;
         frames.get(index).setTitle("ThinCapture " + newName);
+    }
+
+    /** Instantly shows or hides a Thin BT capture frame based on enabled state. */
+    public static void setCaptureEnabled(int index, boolean enabled) {
+        if (index < 0 || index >= frames.size()) return;
+        CaptureFrame f = frames.get(index);
+        if (enabled && thinBTShowing) {
+            CaptureConfig c = options.captures.get(index);
+            f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+            f.positionCapture(
+                    new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                    new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+            );
+            f.showCapture();
+        } else {
+            if (f.isShowing()) f.hideCapture();
+        }
+    }
+
+    /** Instantly repositions a Thin BT capture frame from its config values. */
+    public static void repositionCapture(int index) {
+        if (index < 0 || index >= options.captures.size() || index >= frames.size()) return;
+        CaptureConfig c = options.captures.get(index);
+        CaptureFrame f = frames.get(index);
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
+    }
+
+    /** Instantly updates the filter/transparency settings on a Thin BT capture frame. */
+    public static void updateCaptureFilter(int index) {
+        if (index < 0 || index >= options.captures.size() || index >= frames.size()) return;
+        CaptureConfig c = options.captures.get(index);
+        CaptureFrame f = frames.get(index);
+        f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+        // Also reposition in case textOnly changed (toggles layered window)
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
     }
 
     public static void addBackground(String name) {
@@ -189,6 +264,46 @@ public class ThinCapture {
         if (index < 0 || index >= options.planarAbuseCaptures.size()) return;
         options.planarAbuseCaptures.get(index).name = newName;
         planarFrames.get(index).setTitle("ThinCapture " + newName);
+    }
+
+    /** Instantly shows or hides a Planar Abuse capture frame based on enabled state. */
+    public static void setPlanarCaptureEnabled(int index, boolean enabled) {
+        if (index < 0 || index >= planarFrames.size()) return;
+        CaptureFrame f = planarFrames.get(index);
+        if (enabled && planarShowing) {
+            CaptureConfig c = options.planarAbuseCaptures.get(index);
+            f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+            f.positionCapture(
+                    new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                    new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+            );
+            f.showCapture();
+        } else {
+            if (f.isShowing()) f.hideCapture();
+        }
+    }
+
+    /** Instantly repositions a Planar Abuse capture frame from its config values. */
+    public static void repositionPlanarCapture(int index) {
+        if (index < 0 || index >= options.planarAbuseCaptures.size() || index >= planarFrames.size()) return;
+        CaptureConfig c = options.planarAbuseCaptures.get(index);
+        CaptureFrame f = planarFrames.get(index);
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
+    }
+
+    /** Instantly updates the filter/transparency settings on a Planar Abuse capture frame. */
+    public static void updatePlanarCaptureFilter(int index) {
+        if (index < 0 || index >= options.planarAbuseCaptures.size() || index >= planarFrames.size()) return;
+        CaptureConfig c = options.planarAbuseCaptures.get(index);
+        CaptureFrame f = planarFrames.get(index);
+        f.setFilterOptions(c.textOnly, c.textThreshold, c.transparentBg, parseColor(c.bgColor), c.bgImagePath);
+        f.positionCapture(
+                new Rectangle(c.screenX, c.screenY, c.screenW, c.screenH),
+                new Rectangle(c.captureX, c.captureY, c.captureW, c.captureH)
+        );
     }
 
     public static void addPlanarBackground(String name) {
@@ -261,7 +376,16 @@ public class ThinCapture {
         for (int i = 0; i < configs.size() && i < bgList.size(); i++) {
             BackgroundConfig bg = configs.get(i);
             BackgroundFrame bf = bgList.get(i);
-            if (bg.enabled && bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
+            if (bg.enabled) {
+                bf.setUseImage(bg.useImage);
+                if (bg.useImage) {
+                    if (bg.imagePath != null && !bg.imagePath.trim().isEmpty()) {
+                        bf.loadImage(bg.imagePath);
+                    }
+                } else {
+                    bf.setBgColor(parseColor(bg.bgColor));
+                }
+
                 bf.positionBackground(bg.x, bg.y, bg.width, bg.height);
                 if (!bf.isShowing()) {
                     bf.showBackground();
@@ -287,18 +411,15 @@ public class ThinCapture {
         }
     }
 
-    /**
-     * Reorders all backgrounds behind MC with the active type directly behind MC,
-     * then the other types stacked further back.
-     *
-     * Z-order: MC -> active type bgs -> other type bgs -> other type bgs -> ...
-     */
+    /** Public entry point to force a Z-order reorder of all visible backgrounds behind MC. */
+    public static void reorderBackgroundsNow() {
+        reorderBackgrounds();
+    }
+
     private static void reorderBackgrounds() {
         if (!Jingle.getMainInstance().isPresent()) return;
         WinDef.HWND current = Jingle.getMainInstance().get().hwnd;
 
-        // Active type goes directly behind MC
-        // EyeSee always above the other two, but below the active type if one is active
         if (activeBgType == ActiveBgType.THIN_BT) {
             current = chainBgListBehind(current, bgFrames);
             current = chainBgListBehind(current, eyeSeeBgFrames);
@@ -308,16 +429,12 @@ public class ThinCapture {
             current = chainBgListBehind(current, eyeSeeBgFrames);
             current = chainBgListBehind(current, bgFrames);
         } else {
-            // No capture active (or EYESEE/NONE) — EyeSee on top
             current = chainBgListBehind(current, eyeSeeBgFrames);
             current = chainBgListBehind(current, bgFrames);
             current = chainBgListBehind(current, planarBgFrames);
         }
     }
 
-    /**
-     * Chains backgrounds behind the given window. Returns the last placed HWND.
-     */
     private static WinDef.HWND chainBgListBehind(WinDef.HWND insertAfter, List<BackgroundFrame> bgList) {
         WinDef.HWND current = insertAfter;
         for (BackgroundFrame bf : bgList) {
@@ -372,13 +489,10 @@ public class ThinCapture {
 
             WinDef.HWND hwnd = Jingle.getMainInstance().get().hwnd;
 
-            // Check if MC is focused
             WinDef.HWND foreground = com.sun.jna.platform.win32.User32.INSTANCE.GetForegroundWindow();
             boolean mcFocused = foreground != null && foreground.equals(hwnd);
 
-            // Background management
             if (options.preloadBackgrounds) {
-                // New method: always show behind MC when focused, reorder by active type
                 if (mcFocused) {
                     if (!backgroundsShowing) {
                         showAllBackgrounds();
@@ -391,16 +505,20 @@ public class ThinCapture {
                 }
             }
 
-            // Capture resize detection
             WinDef.RECT rect = new WinDef.RECT();
             User32.INSTANCE.GetClientRect(hwnd, rect);
             int w = rect.right - rect.left;
             int h = rect.bottom - rect.top;
 
-            boolean isThinBT = (w == options.thinBTWidth && h == options.thinBTHeight);
-            boolean isPlanar = (w == options.planarAbuseWidth && h == options.planarAbuseHeight);
+            // Sizes are always synced from the Resizing script (with fallback)
+            int thinW = getEffectiveThinBTWidth();
+            int thinH = getEffectiveThinBTHeight();
+            int planarW = getEffectivePlanarWidth();
+            int planarH = getEffectivePlanarHeight();
 
-            // Thin BT
+            boolean isThinBT = (w == thinW && h == thinH);
+            boolean isPlanar = (w == planarW && h == planarH);
+
             if (isThinBT && !thinBTShowing) {
                 showThinBTCaptures();
                 if (!eyeSeeShowing) setActiveBgType(ActiveBgType.THIN_BT);
@@ -409,7 +527,6 @@ public class ThinCapture {
                 if (activeBgType == ActiveBgType.THIN_BT) setActiveBgType(ActiveBgType.NONE);
             }
 
-            // Planar Abuse
             if (isPlanar && !planarShowing) {
                 showPlanarCaptures();
                 if (!eyeSeeShowing) setActiveBgType(ActiveBgType.PLANAR);
@@ -425,7 +542,6 @@ public class ThinCapture {
     private static void showThinBTCaptures() {
         thinBTShowing = true;
 
-        // Old method: show backgrounds on mode activation
         if (!options.preloadBackgrounds) {
             positionAndShowBgList(options.backgrounds, bgFrames);
         }
@@ -464,7 +580,6 @@ public class ThinCapture {
     private static void showPlanarCaptures() {
         planarShowing = true;
 
-        // Old method: show backgrounds on mode activation
         if (!options.preloadBackgrounds) {
             positionAndShowBgList(options.planarAbuseBackgrounds, planarBgFrames);
         }

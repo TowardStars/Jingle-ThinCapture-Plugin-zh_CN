@@ -15,6 +15,7 @@ import java.util.stream.IntStream;
 public class ThinCapturePluginPanel {
     public final JPanel mainPanel;
     private final JPanel capturesContainer;
+    private JLabel sizeLabel;
 
     public ThinCapturePluginPanel() {
         mainPanel = new JPanel();
@@ -44,7 +45,7 @@ public class ThinCapturePluginPanel {
         generalPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         generalPanel.add(buildAmdRow(o));
-        generalPanel.add(buildThinBTSizeRow(o));
+        generalPanel.add(buildSizeRow());
         generalPanel.add(buildFpsRow(o));
 
         return generalPanel;
@@ -61,24 +62,22 @@ public class ThinCapturePluginPanel {
         return createRow(amdBox, desc);
     }
 
-    private JPanel buildThinBTSizeRow(ThinCaptureOptions o) {
-        JTextField thinWField = new JTextField(String.valueOf(o.thinBTWidth), 4);
-        JTextField thinHField = new JTextField(String.valueOf(o.thinBTHeight), 4);
+    private JPanel buildSizeRow() {
+        sizeLabel = new JLabel();
+        refreshSizeLabel();
 
-        JButton thinApply = createSmallButton("应用", a -> {
-            o.thinBTWidth = intFrom(thinWField, 280);
-            o.thinBTHeight = intFrom(thinHField, 1000);
-            thinWField.setText(String.valueOf(o.thinBTWidth));
-            thinHField.setText(String.valueOf(o.thinBTHeight));
-        });
-
-        JLabel desc = new JLabel("必须与你在‘调整窗口大小（Resizing）’脚本的‘宝藏宏（Thin BT）’大小一致。");
+        JLabel desc = new JLabel("(已从‘调整窗口大小[Resizing]’脚本同步)");
         desc.setFont(desc.getFont().deriveFont(Font.ITALIC, 11f));
 
-        return createRow(
-                new JLabel("宝藏宏大小："), thinWField, new JLabel("×"), thinHField,
-                thinApply, desc
-        );
+        return createRow(new JLabel("宝藏宏大小："), sizeLabel, desc);
+    }
+
+    private void refreshSizeLabel() {
+        if (sizeLabel != null) {
+            int w = ThinCapture.getEffectiveThinBTWidth();
+            int h = ThinCapture.getEffectiveThinBTHeight();
+            sizeLabel.setText(w + " \u00d7 " + h);
+        }
     }
 
     private JPanel buildFpsRow(ThinCaptureOptions o) {
@@ -120,9 +119,9 @@ public class ThinCapturePluginPanel {
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         section.add(buildCaptureTopRow(index, c));
-        section.add(buildMonitorRow(c));
-        section.add(buildMCRegionRow(c));
-        section.add(buildTransparencySection(c));
+        section.add(buildMonitorRow(index, c));
+        section.add(buildMCRegionRow(index, c));
+        section.add(buildTransparencySection(index, c));
 
         return section;
     }
@@ -130,7 +129,10 @@ public class ThinCapturePluginPanel {
     private JPanel buildCaptureTopRow(int index, CaptureConfig c) {
         JCheckBox enableBox = new JCheckBox("开启");
         enableBox.setSelected(c.enabled);
-        enableBox.addActionListener(a -> c.enabled = enableBox.isSelected());
+        enableBox.addActionListener(a -> {
+            c.enabled = enableBox.isSelected();
+            ThinCapture.setCaptureEnabled(index, c.enabled);
+        });
 
         JButton renameBtn = createSmallButton("重命名", a -> {
             String newName = JOptionPane.showInputDialog(mainPanel, "新名称", c.name);
@@ -148,8 +150,16 @@ public class ThinCapturePluginPanel {
         return createRow(enableBox, renameBtn, removeBtn);
     }
 
-    private JPanel buildMonitorRow(CaptureConfig c) {
+    private JPanel buildMonitorRow(int index, CaptureConfig c) {
         JTextField ox = field(c.screenX), oy = field(c.screenY), ow = field(c.screenW), oh = field(c.screenH);
+
+        Runnable applyMonitor = () -> {
+            c.screenX = intFrom(ox, 0);
+            c.screenY = intFrom(oy, 0);
+            c.screenW = Math.max(1, intFrom(ow, 200));
+            c.screenH = Math.max(1, intFrom(oh, 200));
+            ThinCapture.repositionCapture(index);
+        };
 
         Consumer<Rectangle> onRegionSelected = r -> {
             ox.setText(String.valueOf(r.x));
@@ -160,24 +170,19 @@ public class ThinCapturePluginPanel {
             c.screenY = r.y;
             c.screenW = r.width;
             c.screenH = r.height;
+            ThinCapture.repositionCapture(index);
         };
+
+        ox.getDocument().addDocumentListener(docListener(applyMonitor));
+        oy.getDocument().addDocumentListener(docListener(applyMonitor));
+        ow.getDocument().addDocumentListener(docListener(applyMonitor));
+        oh.getDocument().addDocumentListener(docListener(applyMonitor));
 
         JButton selectBtn = createSmallButton("选区", a -> RegionSelector.selectOnScreen(onRegionSelected));
 
         JButton editBtn = createSmallButton("编辑", a -> {
             Rectangle current = new Rectangle(intFrom(ox, 0), intFrom(oy, 0), intFrom(ow, 200), intFrom(oh, 200));
             RegionSelector.editOnScreen(current, onRegionSelected);
-        });
-
-        JButton applyBtn = createSmallButton("应用", a -> {
-            c.screenX = intFrom(ox, 0);
-            c.screenY = intFrom(oy, 0);
-            c.screenW = Math.max(1, intFrom(ow, 200));
-            c.screenH = Math.max(1, intFrom(oh, 200));
-            ox.setText(String.valueOf(c.screenX));
-            oy.setText(String.valueOf(c.screenY));
-            ow.setText(String.valueOf(c.screenW));
-            oh.setText(String.valueOf(c.screenH));
         });
 
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
@@ -194,14 +199,22 @@ public class ThinCapturePluginPanel {
         row.add(oh);
         row.add(selectBtn);
         row.add(editBtn);
-        row.add(applyBtn);
 
         return row;
     }
 
-    private JPanel buildMCRegionRow(CaptureConfig c) {
-        ThinCaptureOptions o = ThinCapture.getOptions();
+    private JPanel buildMCRegionRow(int index, CaptureConfig c) {
         JTextField rx = field(c.captureX), ry = field(c.captureY), rw = field(c.captureW), rh = field(c.captureH);
+
+        Runnable applyRegion = () -> {
+            int effW = ThinCapture.getEffectiveThinBTWidth();
+            int effH = ThinCapture.getEffectiveThinBTHeight();
+            c.captureX = clamp(intFrom(rx, 0), 0, effW - 1);
+            c.captureY = clamp(intFrom(ry, 0), 0, effH - 1);
+            c.captureW = clamp(Math.max(1, intFrom(rw, 200)), 1, effW - c.captureX);
+            c.captureH = clamp(Math.max(1, intFrom(rh, 200)), 1, effH - c.captureY);
+            ThinCapture.repositionCapture(index);
+        };
 
         Consumer<Rectangle> onRegionSelected = r -> {
             rx.setText(String.valueOf(r.x));
@@ -212,24 +225,19 @@ public class ThinCapturePluginPanel {
             c.captureY = r.y;
             c.captureW = r.width;
             c.captureH = r.height;
+            ThinCapture.repositionCapture(index);
         };
+
+        rx.getDocument().addDocumentListener(docListener(applyRegion));
+        ry.getDocument().addDocumentListener(docListener(applyRegion));
+        rw.getDocument().addDocumentListener(docListener(applyRegion));
+        rh.getDocument().addDocumentListener(docListener(applyRegion));
 
         JButton selectBtn = createSmallButton("选区", a -> RegionSelector.selectOnMCWindow(onRegionSelected));
 
         JButton editBtn = createSmallButton("编辑", a -> {
             Rectangle current = new Rectangle(intFrom(rx, 0), intFrom(ry, 0), intFrom(rw, 200), intFrom(rh, 200));
             RegionSelector.editOnMCWindow(current, onRegionSelected);
-        });
-
-        JButton applyBtn = createSmallButton("应用", a -> {
-            c.captureX = clamp(intFrom(rx, 0), 0, o.thinBTWidth - 1);
-            c.captureY = clamp(intFrom(ry, 0), 0, o.thinBTHeight - 1);
-            c.captureW = clamp(Math.max(1, intFrom(rw, 200)), 1, o.thinBTWidth - c.captureX);
-            c.captureH = clamp(Math.max(1, intFrom(rh, 200)), 1, o.thinBTHeight - c.captureY);
-            rx.setText(String.valueOf(c.captureX));
-            ry.setText(String.valueOf(c.captureY));
-            rw.setText(String.valueOf(c.captureW));
-            rh.setText(String.valueOf(c.captureH));
         });
 
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
@@ -246,21 +254,17 @@ public class ThinCapturePluginPanel {
         row.add(rh);
         row.add(selectBtn);
         row.add(editBtn);
-        row.add(applyBtn);
 
         return row;
     }
 
-    private JPanel buildTransparencySection(CaptureConfig c) {
-        ThinCaptureOptions o = ThinCapture.getOptions();
-
+    private JPanel buildTransparencySection(int index, CaptureConfig c) {
         JPanel section = new JPanel();
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
         section.setBorder(BorderFactory.createTitledBorder("透明度"));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
         section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
 
-        // Row 1: Enable checkbox and threshold
         JCheckBox transparencyBox = new JCheckBox("开启 (突出白色文本)");
         transparencyBox.setSelected(c.textOnly);
 
@@ -278,7 +282,6 @@ public class ThinCapturePluginPanel {
         row1.add(threshNote);
         section.add(row1);
 
-        // Row 2: Background type radio buttons
         JRadioButton bgTransparentRadio = new JRadioButton("透明");
         JRadioButton bgColorRadio = new JRadioButton("纯色");
         JRadioButton bgImageRadio = new JRadioButton("图片");
@@ -303,7 +306,6 @@ public class ThinCapturePluginPanel {
         row2.add(bgImageRadio);
         section.add(row2);
 
-        // Row 3: Color/Image fields and Apply button
         JLabel colorLabel = new JLabel("十六进制颜色代码：");
         JTextField bgField = new JTextField(c.bgColor, 7);
         JTextField bgImageField = new JTextField(c.bgImagePath, 14);
@@ -317,43 +319,27 @@ public class ThinCapturePluginPanel {
                 String path = chooser.getSelectedFile().getAbsolutePath();
                 bgImageField.setText(path);
                 c.bgImagePath = path;
+                ThinCapture.updateCaptureFilter(index);
             }
         });
 
         JButton clearImgBtn = createSmallButton("清除", a -> {
             bgImageField.setText("");
             c.bgImagePath = "";
+            ThinCapture.updateCaptureFilter(index);
         });
 
-        JButton applyBtn = createSmallButton("应用", a -> {
-            c.captureX = clamp(c.captureX, 0, o.thinBTWidth - 1);
-            c.captureY = clamp(c.captureY, 0, o.thinBTHeight - 1);
-            c.captureW = clamp(c.captureW, 1, o.thinBTWidth - c.captureX);
-            c.captureH = clamp(c.captureH, 1, o.thinBTHeight - c.captureY);
-            c.textThreshold = clamp(intFrom(threshField, 200), 0, 255);
-            threshField.setText(String.valueOf(c.textThreshold));
-        });
-
-        JPanel row3 = new JPanel(new BorderLayout());
+        JPanel row3 = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
         row3.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-
-        JPanel row3Left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
-        row3Left.add(Box.createHorizontalStrut(16));
-        row3Left.add(colorLabel);
-        row3Left.add(bgField);
-        row3Left.add(Box.createHorizontalStrut(12));
-        row3Left.add(bgImageField);
-        row3Left.add(browseBtn);
-        row3Left.add(clearImgBtn);
-
-        JPanel row3Right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 2));
-        row3Right.add(applyBtn);
-
-        row3.add(row3Left, BorderLayout.WEST);
-        row3.add(row3Right, BorderLayout.EAST);
+        row3.add(Box.createHorizontalStrut(16));
+        row3.add(colorLabel);
+        row3.add(bgField);
+        row3.add(Box.createHorizontalStrut(12));
+        row3.add(bgImageField);
+        row3.add(browseBtn);
+        row3.add(clearImgBtn);
         section.add(row3);
 
-        // State management
         Runnable updateState = () -> {
             boolean on = transparencyBox.isSelected();
             threshLabel.setEnabled(on);
@@ -372,24 +358,32 @@ public class ThinCapturePluginPanel {
             clearImgBtn.setEnabled(imageOn);
         };
 
-        Runnable syncConfig = () -> {
+        Runnable syncAndApply = () -> {
             c.textOnly = transparencyBox.isSelected();
             c.transparentBg = bgTransparentRadio.isSelected();
             if (bgColorRadio.isSelected()) {
                 c.bgImagePath = "";
             }
+            ThinCapture.updateCaptureFilter(index);
         };
 
-        transparencyBox.addActionListener(a -> { syncConfig.run(); updateState.run(); });
-        bgTransparentRadio.addActionListener(a -> { syncConfig.run(); updateState.run(); });
-        bgColorRadio.addActionListener(a -> { syncConfig.run(); updateState.run(); });
-        bgImageRadio.addActionListener(a -> { syncConfig.run(); updateState.run(); });
+        transparencyBox.addActionListener(a -> { syncAndApply.run(); updateState.run(); });
+        bgTransparentRadio.addActionListener(a -> { syncAndApply.run(); updateState.run(); });
+        bgColorRadio.addActionListener(a -> { syncAndApply.run(); updateState.run(); });
+        bgImageRadio.addActionListener(a -> { syncAndApply.run(); updateState.run(); });
 
-        threshField.getDocument().addDocumentListener(docListener(() ->
-                c.textThreshold = clamp(intFrom(threshField, 200), 0, 255)
-        ));
-        bgField.getDocument().addDocumentListener(docListener(() -> c.bgColor = bgField.getText().trim()));
-        bgImageField.getDocument().addDocumentListener(docListener(() -> c.bgImagePath = bgImageField.getText().trim()));
+        threshField.getDocument().addDocumentListener(docListener(() -> {
+            c.textThreshold = clamp(intFrom(threshField, 200), 0, 255);
+            ThinCapture.updateCaptureFilter(index);
+        }));
+        bgField.getDocument().addDocumentListener(docListener(() -> {
+            c.bgColor = bgField.getText().trim();
+            ThinCapture.updateCaptureFilter(index);
+        }));
+        bgImageField.getDocument().addDocumentListener(docListener(() -> {
+            c.bgImagePath = bgImageField.getText().trim();
+            ThinCapture.updateCaptureFilter(index);
+        }));
 
         updateState.run();
 
@@ -411,6 +405,7 @@ public class ThinCapturePluginPanel {
     }
 
     public void onSwitchTo() {
+        refreshSizeLabel();
         rebuildCaptures();
     }
 
